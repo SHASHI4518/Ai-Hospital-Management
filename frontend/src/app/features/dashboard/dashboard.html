@@ -1,0 +1,118 @@
+<div class="container mt-5">
+
+  <!-- HEADER -->
+  <h2 class="text-center mb-2 fw-bold">Find Your Doctor</h2>
+
+  <!-- DROPDOWN -->
+  <div class="card shadow-sm p-3 mb-4 border-0 rounded-4">
+    <label class="mb-2 fw-semibold">Select Doctor</label>
+
+    <select class="form-control form-select form-select-lg"
+            [(ngModel)]="selectedDoctorId"
+            (change)="onDoctorChange()">
+
+      <option [ngValue]="null"> Select Doctor</option>
+
+      <option *ngFor="let doc of doctors" [ngValue]="doc.id">
+        {{ doc.name }} - {{ doc.specialization }}
+      </option>
+
+    </select>
+  </div>
+
+  <!-- DOCTOR CARD -->
+
+  <ng-container *ngIf="selectedDoctorId">
+
+    <ng-container *ngFor="let doc of doctors">
+
+      <div *ngIf="doc.id === selectedDoctorId" class="container mt-4">
+        <div class="row justify-content-center">
+          <div class="col-md-6">
+
+            <div class="card shadow p-4">
+
+              <!-- FLEX -->
+              <div class="d-flex align-items-center">
+
+                <img [src]="'http://localhost:8080' + doc.image"
+                     class="rounded-circle me-4"
+                     width="100"
+                     height="100"
+                     style="object-fit: cover;"
+                     [alt]="doc.name">
+
+                <div>
+                  <h4 class="text-primary mb-1">{{ doc.name }}</h4>
+                  <p class="fw-bold mb-1">{{ doc.specialization }}</p>
+                  <p class="mb-1">Experience: {{ doc.experience }} yrs</p>
+                  <p class="mb-1">Clinic: {{ doc.clinic }}</p>
+                  <p class="mb-1">Location: {{ doc.location }}</p>
+
+                  <p [ngClass]="doc.available === 1 ? 'text-success' : 'text-danger'">
+                    {{ doc.available === 1 ? 'Available Today' : 'Not Available' }}
+                  </p>
+
+                  <p class="text-success fw-bold mt-2">₹{{ doc.fee }}</p>
+                </div>
+
+              </div>
+
+              <hr>
+
+              <!-- DATE -->
+              <input type="date"
+                     [(ngModel)]="selectedDate"
+                     (change)="selectedTime=''; loadSlots(doc.id)"
+                     class="form-control mb-3"
+                     [min]="today">
+
+              <!-- SLOT BUTTONS -->
+              <div class="mb-3">
+
+                <label class="fw-semibold mb-2">Select Time Slot</label>
+
+                <div *ngIf="!doctorSlots[doc.id]" class="text-muted fst-italic">
+                  Loading slots...
+                </div>
+
+                <div *ngIf="doctorSlots[doc.id]" class="d-flex flex-wrap gap-2">
+
+                  <button *ngFor="let s of slots"
+                          class="btn"
+                          [ngClass]="{
+                            'btn-success':   !isSlotDisabled(doc.id, s) && selectedTime !== s,
+                            'btn-secondary':  isSlotDisabled(doc.id, s),
+                            'btn-primary':    selectedTime === s && !isSlotDisabled(doc.id, s)
+                          }"
+                          [disabled]="isSlotDisabled(doc.id, s)"
+                          (click)="selectedTime = s">
+
+                    {{ s }}
+
+                  </button>
+
+                </div>
+
+              </div>
+
+              <!-- BOOK BUTTON -->
+              <button class="btn btn-success w-100 fw-bold py-2"
+                      [disabled]="!selectedDate || !selectedTime || doc.available !== 1"
+                      (click)="book(doc.id)">
+
+                Book Appointment
+
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </ng-container>
+
+  </ng-container>
+
+</div>

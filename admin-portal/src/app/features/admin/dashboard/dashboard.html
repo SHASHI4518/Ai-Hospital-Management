@@ -1,0 +1,37 @@
+<app-navbar></app-navbar>
+
+<div class="d-flex">
+
+  <!-- Sidebar -->
+  <app-sidebar></app-sidebar>
+
+  <!-- Main Content -->
+  <div class="p-4 w-100">
+
+    <h3 class="mb-4">Admin Dashboard</h3>
+     
+  <div class="row mb-4">
+
+  <div class="col-md-4">
+    <div class="card shadow-lg p-4 text-center border-0 rounded-4 bg-primary text-white">
+      <h6>Total Doctors</h6>
+      <h1>{{ stats?.doctors }}</h1>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card shadow-lg p-4 text-center border-0 rounded-4 bg-success text-white">
+      <h6>Total Appointments</h6>
+      <h1>{{ stats?.appointments }}</h1>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card shadow-lg p-4 text-center border-0 rounded-4 bg-warning text-white">
+      <h6>Today's Appointments</h6>
+      <h1>{{ stats?.today }}</h1>
+    </div>
+  </div>
+
+</div>
+    

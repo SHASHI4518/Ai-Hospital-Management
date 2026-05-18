@@ -1,0 +1,45 @@
+<div class="d-flex justify-content-center align-items-center vh-100 bg-light">
+
+  <div class="card shadow p-4" style="width: 380px; border-radius: 15px;">
+
+    <h3 class="text-center mb-4">Admin Signup</h3>
+
+    <!-- Name -->
+    <input
+      [(ngModel)]="name"
+      class="form-control mb-3"
+      placeholder="Full Name"
+    >
+
+    <!-- Mobile -->
+    <input
+      [(ngModel)]="mobile"
+      class="form-control mb-3"
+      placeholder="Mobile Number"
+    >
+
+    <!-- Password -->
+    <input
+      [(ngModel)]="password"
+      type="password"
+      class="form-control mb-3"
+      placeholder="Password"
+    >
+
+    <!-- Button -->
+    <button
+      class="btn btn-primary w-100 mb-3"
+      (click)="signup()"
+    >
+      Register
+    </button>
+
+    <!-- Login link -->
+    <p class="text-center mb-0">
+      Already have an account?
+      <a routerLink="/">Login</a>
+    </p>
+
+  </div>
+
+</div>

@@ -1,0 +1,7 @@
+<app-navbar *ngIf="showLayout()"></app-navbar>
+
+<div class="container-fluid">
+  <router-outlet></router-outlet>
+</div>
+
+<app-footer *ngIf="showLayout()"></app-footer>

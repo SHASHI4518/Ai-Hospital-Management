@@ -1,0 +1,51 @@
+<app-navbar></app-navbar>
+
+<div class="d-flex">
+
+  <app-sidebar></app-sidebar>
+
+  <div class="p-4 w-100">
+
+    <h3 class="mb-4">Doctors Management</h3>
+
+    <!-- ================= ADD DOCTOR ================= -->
+    <div class="card p-4 mb-4">
+      <h4>Add Doctor</h4>
+
+      <input [(ngModel)]="name" placeholder="Name" class="form-control mb-2">
+      <input [(ngModel)]="specialization" placeholder="Specialization" class="form-control mb-2">
+      <input [(ngModel)]="experience" placeholder="Experience" class="form-control mb-2">
+      <input [(ngModel)]="clinic" placeholder="Clinic" class="form-control mb-2">
+      <input [(ngModel)]="location" placeholder="Location" class="form-control mb-2">
+      <input [(ngModel)]="fee" placeholder="Fee" class="form-control mb-2">
+      <div class="mb-2">
+      <label class="form-label">Doctor Photo</label>
+      <div class="upload-zone" (click)="photoInput.click()"
+       (dragover)="$event.preventDefault(); dropZone.classList.add('drag-over')"
+       (dragleave)="dropZone.classList.remove('drag-over')"
+       (drop)="onDrop($event)" #dropZone>
+    <input type="file" accept="image/jpeg,image/png,image/webp"
+           (change)="onFileSelected($event)" #photoInput hidden>
+    <span style="font-size:28px">📷</span>
+    <p class="mb-0 mt-1">Drag &amp; drop or click to browse</p>
+    <small class="text-muted">JPG, PNG, WEBP · Max 5 MB</small>
+  </div>
+  <div *ngIf="imagePreview" class="d-flex align-items-center gap-2 mt-2 p-2 border rounded">
+    <img [src]="imagePreview" style="width:52px;height:52px;border-radius:50%;object-fit:cover">
+    <span class="text-truncate flex-grow-1" style="font-size:13px">{{ imageFile?.name }}</span>
+    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removePhoto()">Remove</button>
+  </div>
+  <small *ngIf="imageError" class="text-danger">{{ imageError }}</small>
+</div>
+    
+      <div class="form-check mb-3">
+        <input type="checkbox" [(ngModel)]="available" class="form-check-input">
+        <label>Available</label>
+      </div>
+
+      <button class="btn btn-primary w-100" (click)="addDoctor()">
+        Add Doctor
+      </button>
+    </div>
+
+   

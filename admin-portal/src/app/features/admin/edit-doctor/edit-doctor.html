@@ -1,0 +1,141 @@
+<app-navbar></app-navbar>
+
+<div class="d-flex">
+
+  <app-sidebar></app-sidebar>
+
+  <div class="p-4 w-100">
+
+    <h3 class="mb-4">Edit Doctors</h3>
+
+    <input type="text"
+           class="form-control mb-3"
+           placeholder="Search by name, specialization, location..."
+           [(ngModel)]="searchText"
+           (input)="filterDoctors()">
+
+    <!--  DOCTORS LIST  -->
+    <div class="card p-3 mb-4">
+
+      <h5>Select Doctor</h5>
+
+      <div *ngFor="let doc of filteredDoctors; trackBy: trackById"
+           class="border p-3 mb-2 d-flex justify-content-between align-items-center rounded">
+
+        <!-- LEFT SIDE -->
+        <div>
+          <strong>{{ doc.name }}</strong> - {{ doc.specialization }}
+        </div>
+
+        <!-- RIGHT SIDE BUTTONS -->
+        <div class="d-flex gap-2">
+
+          <button class="btn btn-sm btn-warning"
+                  (click)="selectDoctor(doc)">
+            Edit
+          </button>
+
+          <button class="btn btn-sm btn-danger"
+                  (click)="deleteDoctor(doc.id)">
+            Delete
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- EDIT FORM  -->
+    <div *ngIf="selectedDoctor" class="card p-4">
+
+      <h5>Edit Doctor</h5>
+
+      <input [(ngModel)]="selectedDoctor.name" class="form-control mb-2" placeholder="Name">
+      <input [(ngModel)]="selectedDoctor.specialization" class="form-control mb-2" placeholder="Specialization">
+      <input [(ngModel)]="selectedDoctor.experience" class="form-control mb-2" placeholder="Experience">
+      <input [(ngModel)]="selectedDoctor.clinic" class="form-control mb-2" placeholder="Clinic">
+      <input [(ngModel)]="selectedDoctor.location" class="form-control mb-2" placeholder="Location">
+      <input [(ngModel)]="selectedDoctor.fee" class="form-control mb-2" placeholder="Fee">
+<div class="mb-2">
+  <label class="form-label">Doctor Photo</label>
+
+  <!-- CURRENT PHOTO PREVIEW -->
+  <div *ngIf="selectedDoctor.image && !editImagePreview"
+       class="d-flex align-items-center gap-2 p-2 border rounded mb-2">
+    <img [src]="'http://localhost:8080' + selectedDoctor.image"
+         style="width:52px;height:52px;border-radius:50%;object-fit:cover"
+         alt="Current photo">
+    <span style="font-size:13px" class="text-muted">Current photo</span>
+  </div>
+
+  <!-- UPLOAD ZONE -->
+  <div class="upload-zone" (click)="editPhotoInput.click()"
+       (dragover)="$event.preventDefault(); editDropZone.classList.add('drag-over')"
+       (dragleave)="editDropZone.classList.remove('drag-over')"
+       (drop)="onEditDrop($event)" #editDropZone>
+    <input type="file" accept="image/jpeg,image/png,image/webp"
+           (change)="onEditFileSelected($event)" #editPhotoInput hidden>
+    <span style="font-size:24px">📷</span>
+    <p class="mb-0 mt-1">{{ editImagePreview ? 'Change photo' : 'Upload new photo' }}</p>
+    <small class="text-muted">JPG, PNG, WEBP · Max 5 MB</small>
+  </div>
+
+  <!-- NEW PHOTO PREVIEW -->
+  <div *ngIf="editImagePreview"
+       class="d-flex align-items-center gap-2 p-2 border rounded mt-2">
+    <img [src]="editImagePreview"
+         style="width:52px;height:52px;border-radius:50%;object-fit:cover"
+         alt="New photo preview">
+    <span class="flex-grow-1 text-truncate" style="font-size:13px">{{ editImageFile?.name }}</span>
+    <button type="button" class="btn btn-sm btn-outline-danger"
+            (click)="removeEditPhoto()">Remove</button>
+  </div>
+
+  <small *ngIf="editImageError" class="text-danger">{{ editImageError }}</small>
+</div>
+      <div class="form-check mb-3">
+        <input type="checkbox"
+               [checked]="selectedDoctor.available == 1"
+               (change)="selectedDoctor.available = $any($event.target).checked ? 1 : 0"
+               class="form-check-input"
+               id="availableCheck">
+       
+        <label class="form-check-label" for="availableCheck">Available</label>
+      </div>
+
+      <button class="btn btn-success w-100" (click)="updateDoctor()">
+        Update Doctor
+      </button>
+
+    </div>
+
+    <!-- ================= SLOTS ================= -->
+    <div *ngIf="selectedDoctor" class="card p-4 mt-4">
+
+      <h5 class="mb-3">Manage Time Slots</h5>
+
+      <div *ngFor="let s of slots" class="mb-2 d-flex align-items-center gap-2">
+
+        
+        <input type="checkbox"
+               [checked]="isChecked(selectedDoctor.id, s)"
+               (change)="toggleSlot(selectedDoctor.id, s, $event)"
+               [disabled]="pendingToggles.has(selectedDoctor.id + '_' + s)"
+               class="form-check-input mt-0">
+
+        <span>{{ s }}</span>
+
+        <!-- Visual feedback while toggle is in-flight -->
+        <span *ngIf="pendingToggles.has(selectedDoctor.id + '_' + s)"
+              class="spinner-border spinner-border-sm text-secondary ms-1"
+              role="status">
+        </span>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
