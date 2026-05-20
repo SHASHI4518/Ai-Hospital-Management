@@ -5,6 +5,8 @@ import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { DoctorService } from 'src/app/core/services/doctor.service';
 
+const API = 'http://localhost:8080';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -26,7 +28,12 @@ export class DashboardComponent implements OnInit {
     "17:00", "18:00", "19:00", "20:00", "21:00"
   ];
 
+  // doctorSlots[`${docId}_${date}`][time] = 0|1
   doctorSlots: { [slotKey: string]: { [time: string]: number } } = {};
+
+  // Per-date doctor availability: true = available, false = not available, null = not loaded
+  dateAvailability: { [key: string]: boolean } = {};
+  loadingSlots = false;
 
   specializationsInfo = [
     { name: 'Gynecologist', desc: 'Women health, pregnancy, and reproductive care.', icon: '🩺' },
@@ -69,23 +76,53 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  /**
+   * Load slots for a doctor+date from backend.
+   * Backend returns { doctorAvailableOnDate: bool|null, slots: [...] }
+   */
   loadSlots(doctorId: number, date: string) {
     if (!date) return;
-    this.http.get<any[]>(`http://localhost:8080/slots/${doctorId}?date=${date}`)
-      .subscribe({
-        next: (res) => {
-          const map: { [time: string]: number } = {};
-          res.forEach((s: any) => {
-            map[s.time] = Number(s.available);
-          });
-          const slotKey = `${doctorId}_${date}`;
-          this.doctorSlots[slotKey] = map;
-          this.cd.detectChanges();
-        },
-        error: () => {
-          console.error(`Failed to load slots for doctor ${doctorId} on date ${date}`);
+    this.loadingSlots = true;
+
+    this.http.get<any>(`${API}/slots/${doctorId}?date=${date}`).subscribe({
+      next: (res) => {
+        const slotKey = `${doctorId}_${date}`;
+        const avKey = slotKey;
+
+        // Handle both old array response and new object response
+        let slotsArr: any[] = [];
+        let doctorAvailableOnDate: boolean | null = null;
+
+        if (Array.isArray(res)) {
+          slotsArr = res;
+        } else {
+          slotsArr = res.slots || [];
+          doctorAvailableOnDate = res.doctorAvailableOnDate;
         }
-      });
+
+        const map: { [time: string]: number } = {};
+        slotsArr.forEach((s: any) => { map[s.time] = Number(s.available); });
+        this.doctorSlots[slotKey] = map;
+
+        // Set date-wise availability
+        if (doctorAvailableOnDate === false) {
+          this.dateAvailability[avKey] = false;
+        } else if (doctorAvailableOnDate === true) {
+          this.dateAvailability[avKey] = true;
+        } else {
+          // null = no override, check global
+          const doc = this.doctors.find(d => d.id === doctorId);
+          this.dateAvailability[avKey] = doc ? doc.available === 1 : false;
+        }
+
+        this.loadingSlots = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        console.error(`Failed to load slots for doctor ${doctorId} on date ${date}`);
+        this.loadingSlots = false;
+      }
+    });
   }
 
   onDoctorChange() {
@@ -100,29 +137,56 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  /**
+   * Whether a slot button should be disabled.
+   * Disabled if: no date, slots not loaded, or admin set available=0 for that slot.
+   */
   isSlotDisabled(docId: number, time: string): boolean {
     if (!this.selectedDate) return true;
     const slotKey = `${docId}_${this.selectedDate}`;
+
+    // If doctor is unavailable on this date, all slots disabled
+    if (this.dateAvailability[slotKey] === false) return true;
+
     const map = this.doctorSlots[slotKey];
     if (!map) return true;
     if (map[time] === undefined) return true;
     return map[time] === 0;
   }
 
+  /** True if doctor is available on the selectedDate */
+  isDoctorAvailableOnDate(docId: number): boolean {
+    if (!this.selectedDate) {
+      const doc = this.doctors.find(d => d.id === docId);
+      return doc ? doc.available === 1 : false;
+    }
+    const avKey = `${docId}_${this.selectedDate}`;
+    if (this.dateAvailability[avKey] !== undefined) {
+      return this.dateAvailability[avKey];
+    }
+    // Fallback to global
+    const doc = this.doctors.find(d => d.id === docId);
+    return doc ? doc.available === 1 : false;
+  }
+
+  /** True if slots have been fetched for the current doctor+date */
+  hasSlotsLoaded(docId: number): boolean {
+    if (!this.selectedDate) return false;
+    const slotKey = `${docId}_${this.selectedDate}`;
+    return this.doctorSlots[slotKey] !== undefined;
+  }
+
   loadAppointments() {
     const mobile = localStorage.getItem("user");
     if (!mobile) return;
 
-    this.http.get<any[]>(`http://localhost:8080/appointments/${mobile}`)
-      .subscribe({
-        next: (res) => {
-          this.appointments = res;
-          this.cd.detectChanges();
-        },
-        error: () => {
-          console.error("Failed to load appointments");
-        }
-      });
+    this.http.get<any[]>(`${API}/appointments/${mobile}`).subscribe({
+      next: (res) => {
+        this.appointments = res;
+        this.cd.detectChanges();
+      },
+      error: () => { console.error("Failed to load appointments"); }
+    });
   }
 
   book(doctorId: number) {
@@ -138,32 +202,23 @@ export class DashboardComponent implements OnInit {
       time: this.selectedTime
     };
 
-    this.http.post("http://localhost:8080/book", data, { responseType: 'text' })
-      .subscribe({
-        next: (res) => {
-          alert(res);
-          this.loadAppointments();
-          this.loadSlots(doctorId, this.selectedDate);
-          this.selectedDate = '';
-          this.selectedTime = '';
-        },
-        error: () => {
-          alert("Error booking appointment");
-        }
-      });
+    this.http.post(`${API}/book`, data, { responseType: 'text' }).subscribe({
+      next: (res) => {
+        alert(res);
+        this.loadAppointments();
+        this.loadSlots(doctorId, this.selectedDate);
+        this.selectedDate = '';
+        this.selectedTime = '';
+      },
+      error: () => { alert("Error booking appointment"); }
+    });
   }
 
   cancel(id: number) {
-    this.http.delete(`http://localhost:8080/appointments/${id}`, { responseType: 'text' })
-      .subscribe({
-        next: (res) => {
-          alert(res);
-          this.loadAppointments();
-        },
-        error: () => {
-          alert("Error cancelling appointment");
-        }
-      });
+    this.http.delete(`${API}/appointments/${id}`, { responseType: 'text' }).subscribe({
+      next: (res) => { alert(res); this.loadAppointments(); },
+      error: () => { alert("Error cancelling appointment"); }
+    });
   }
 
   getDoctorName(id: number) {
@@ -176,9 +231,7 @@ export class DashboardComponent implements OnInit {
     window.location.href = "/login";
   }
 
-  trackById(index: number, item: any) {
-    return item.id;
-  }
+  trackById(index: number, item: any) { return item.id; }
 
   formatDateOnly(dateString: string): string {
     if (!dateString) return '';

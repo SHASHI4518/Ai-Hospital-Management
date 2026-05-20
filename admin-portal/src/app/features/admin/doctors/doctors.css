@@ -506,3 +506,103 @@
   .form-grid     { grid-template-columns: 1fr; }
   .page-content  { padding: 16px; }
 }
+
+/* ── Date-wise Availability additions ─────────────────────── */
+
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  margin-top: 4px;
+}
+
+.availability-status-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.availability-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avail-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+}
+
+.avail-badge-lg {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 20px;
+}
+
+.avail-badge-lg.avail-yes {
+  background: #d4edda;
+  color: #155724;
+}
+
+.avail-badge-lg.avail-no {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.availability-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-avail-yes {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #28a745;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-avail-yes:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-avail-yes:not(:disabled):hover { background: #218838; }
+
+.btn-avail-no {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  background: #dc3545;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-avail-no:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-avail-no:not(:disabled):hover { background: #c82333; }
+
+.saving-indicator {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+}
+
+.unavail-msg {
+  color: #dc3545 !important;
+}

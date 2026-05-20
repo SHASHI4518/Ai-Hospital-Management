@@ -5,12 +5,7 @@
 
   <div class="page-content">
 
-    <div class="page-header">
-      <div>
-        <h2 class="page-title">Doctors Management</h2>
-        <p class="page-subtitle">Add new doctors or manage existing ones</p>
-      </div>
-    </div>
+    
 
     <div *ngIf="successMsg" class="alert-banner success">
       <span class="alert-icon">✓</span> {{ successMsg }}
@@ -30,8 +25,8 @@
       </button>
     </div>
 
+    <!-- ══════════════════════ ADD DOCTOR TAB ══════════════════════ -->
     <div *ngIf="activeTab === 'add'" class="tab-panel">
-
       <div class="form-card">
         <div class="form-card-header">
           <div class="form-card-icon add-icon">＋</div>
@@ -42,7 +37,6 @@
         </div>
 
         <div class="form-grid">
-
           <div class="form-field full-width">
             <label class="field-label">Doctor Photo</label>
             <div class="upload-zone" (click)="addPhotoInput.click()"
@@ -98,20 +92,17 @@
           </div>
 
           <div class="form-field full-width">
-            <label class="field-label">Availability</label>
+            <label class="field-label">Default Availability</label>
             <div class="toggle-group">
               <label class="toggle-switch">
                 <input type="checkbox" [(ngModel)]="available">
-                <span class="toggle-track">
-                  <span class="toggle-thumb"></span>
-                </span>
+                <span class="toggle-track"><span class="toggle-thumb"></span></span>
               </label>
               <span class="toggle-label" [class.available]="available" [class.unavailable]="!available">
-                {{ available ? 'Available for appointments' : 'Not available today' }}
+                {{ available ? 'Available for appointments' : 'Not available' }}
               </span>
             </div>
           </div>
-
         </div>
 
         <div class="form-actions">
@@ -121,12 +112,12 @@
       </div>
     </div>
 
+    <!-- ══════════════════════ MANAGE DOCTORS TAB ══════════════════════ -->
     <div *ngIf="activeTab === 'edit'" class="tab-panel">
-
       <div class="manage-layout">
 
+        <!-- Doctor list sidebar -->
         <div class="doctors-list-panel">
-
           <div class="panel-header">
             <h4 class="panel-title">All Doctors</h4>
             <span class="doctor-count">{{ filteredDoctors.length }}</span>
@@ -156,7 +147,9 @@
               <div class="doctor-info">
                 <span class="doctor-name">{{ doc.name }}</span>
                 <span class="doctor-spec">{{ doc.specialization }}</span>
-                <span class="avail-badge" [class.avail-yes]="doc.available == 1" [class.avail-no]="doc.available != 1">
+                <span class="avail-badge"
+                      [class.avail-yes]="doc.available == 1"
+                      [class.avail-no]="doc.available != 1">
                   {{ doc.available == 1 ? '● Available' : '● Unavailable' }}
                 </span>
               </div>
@@ -165,7 +158,6 @@
                 <button class="btn-icon danger" (click)="$event.stopPropagation(); deleteDoctor(doc.id)"
                         title="Delete">🗑</button>
               </div>
-
             </div>
 
             <div *ngIf="filteredDoctors.length === 0" class="empty-state">
@@ -174,6 +166,7 @@
           </div>
         </div>
 
+        <!-- Edit panel -->
         <div class="edit-panel" id="editFormSection">
 
           <div *ngIf="!selectedDoctor" class="no-selection">
@@ -184,6 +177,7 @@
 
           <div *ngIf="selectedDoctor">
 
+            <!-- ── Basic Info Card ── -->
             <div class="form-card">
               <div class="form-card-header">
                 <div class="form-card-icon edit-icon">✎</div>
@@ -251,22 +245,21 @@
               </div>
 
               <div class="form-field">
-                <label class="field-label">Availability</label>
+                <label class="field-label">Global Availability (Default)</label>
                 <div class="toggle-group">
                   <label class="toggle-switch">
                     <input type="checkbox"
                            [checked]="selectedDoctor.available == 1"
                            (change)="onAvailabilityChange($any($event.target).checked)">
-                    <span class="toggle-track">
-                      <span class="toggle-thumb"></span>
-                    </span>
+                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
                   </label>
                   <span class="toggle-label"
                         [class.available]="selectedDoctor.available == 1"
                         [class.unavailable]="selectedDoctor.available != 1">
-                    {{ selectedDoctor.available == 1 ? 'Available for appointments' : 'Not available today' }}
+                    {{ selectedDoctor.available == 1 ? 'Generally Available' : 'Generally Unavailable' }}
                   </span>
                 </div>
+                <small class="field-hint">This is the default status. Use the date-wise section below to override per date.</small>
               </div>
 
               <div class="form-actions">
@@ -275,17 +268,13 @@
               </div>
             </div>
 
+            <!-- ── Date-wise Availability Card ── -->
             <div class="form-card slots-card">
               <div class="form-card-header">
-                <div class="form-card-icon slot-icon"></div>
+                <div class="form-card-icon slot-icon">📅</div>
                 <div>
-                  <h4 class="form-card-title">Time Slots Management</h4>
-                  <p class="form-card-subtitle" *ngIf="selectedDoctor.available == 1">
-                    Select a date and toggle slots, then click Upload or Update to commit changes.
-                  </p>
-                  <p class="form-card-subtitle unavail-msg" *ngIf="selectedDoctor.available != 1">
-                    ⚠ Doctor is unavailable — all slots are disabled
-                  </p>
+                  <h4 class="form-card-title">Date-wise Availability</h4>
+                  <p class="form-card-subtitle">Override doctor's availability for a specific date</p>
                 </div>
               </div>
 
@@ -294,41 +283,89 @@
                 <input type="date" [(ngModel)]="selectedDate" (change)="onDateChange()" class="field-input" style="max-width: 250px;">
               </div>
 
-              <div class="slots-grid" [class.slots-disabled]="selectedDoctor.available != 1">
+              <div *ngIf="selectedDate" class="availability-status-row">
+                <div class="availability-current">
+                  <span class="avail-label">Status on {{ selectedDate }}:</span>
+                  <span class="avail-badge-lg"
+                        [class.avail-yes]="isDoctorAvailableOnDate(selectedDoctor.id)"
+                        [class.avail-no]="!isDoctorAvailableOnDate(selectedDoctor.id)">
+                    {{ isDoctorAvailableOnDate(selectedDoctor.id) ? '● Available' : '● Not Available' }}
+                  </span>
+                </div>
+
+                <div class="availability-actions">
+                  <button class="btn-avail-yes"
+                          [disabled]="savingAvailability || isDoctorAvailableOnDate(selectedDoctor.id)"
+                          (click)="saveDateAvailability(selectedDoctor.id, true)">
+                    ✓ Mark Available
+                  </button>
+                  <button class="btn-avail-no"
+                          [disabled]="savingAvailability || !isDoctorAvailableOnDate(selectedDoctor.id)"
+                          (click)="saveDateAvailability(selectedDoctor.id, false)">
+                    ✕ Mark Unavailable
+                  </button>
+                  <span *ngIf="savingAvailability" class="saving-indicator">Saving...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Time Slots Card ── -->
+            <div class="form-card slots-card">
+              <div class="form-card-header">
+                <div class="form-card-icon slot-icon">🕐</div>
+                <div>
+                  <h4 class="form-card-title">Time Slots Management</h4>
+                  <p class="form-card-subtitle" *ngIf="isDoctorAvailableOnDate(selectedDoctor.id)">
+                    Toggle the slots you want to enable for {{ selectedDate || 'selected date' }}, then click Save Slots.
+                  </p>
+                  <p class="form-card-subtitle unavail-msg" *ngIf="!isDoctorAvailableOnDate(selectedDoctor.id)">
+                    ⚠ Doctor is unavailable on {{ selectedDate || 'this date' }} — mark as available first.
+                  </p>
+                </div>
+              </div>
+
+              <div class="form-field" style="margin-bottom: 20px; padding: 0 5px;">
+                <label class="field-label" style="font-weight: 600;">Date</label>
+                <input type="date" [(ngModel)]="selectedDate" (change)="onDateChange()" class="field-input" style="max-width: 250px;">
+              </div>
+
+              <div class="slots-grid" [class.slots-disabled]="!isDoctorAvailableOnDate(selectedDoctor.id)">
                 <div *ngFor="let s of ALL_SLOTS" class="slot-item"
-                     [class.slot-on]="isChecked(selectedDoctor.id, s) && selectedDoctor.available == 1"
-                     [class.slot-off]="!isChecked(selectedDoctor.id, s) || selectedDoctor.available != 1"
-                     [class.slot-pending]="pendingToggles.has(selectedDoctor.id + '_' + selectedDate + '_' + s)">
+                     [class.slot-on]="isChecked(selectedDoctor.id, s) && isDoctorAvailableOnDate(selectedDoctor.id)"
+                     [class.slot-off]="!isChecked(selectedDoctor.id, s) || !isDoctorAvailableOnDate(selectedDoctor.id)">
 
                   <label class="slot-label">
                     <input type="checkbox"
-                           [checked]="isChecked(selectedDoctor.id, s) && selectedDoctor.available == 1"
-                           [disabled]="pendingToggles.has(selectedDoctor.id + '_' + selectedDate + '_' + s) || selectedDoctor.available != 1"
+                           [checked]="isChecked(selectedDoctor.id, s) && isDoctorAvailableOnDate(selectedDoctor.id)"
+                           [disabled]="!isDoctorAvailableOnDate(selectedDoctor.id)"
                            (change)="localToggleSlot(s, $event)"
                            class="slot-checkbox">
                     <span class="slot-time">{{ s }}</span>
-                    <span *ngIf="pendingToggles.has(selectedDoctor.id + '_' + selectedDate + '_' + s)"
-                          class="slot-spinner">⟳</span>
                   </label>
                 </div>
               </div>
 
-              <div class="form-actions" style="margin-top: 20px; padding: 0 5px;" *ngIf="selectedDoctor.available == 1">
-                <button class="btn-primary" [disabled]="!selectedDate" (click)="uploadOrUpdateSlots(selectedDoctor.id)">Upload or Update Slots</button>
+              <div class="form-actions" style="margin-top: 20px; padding: 0 5px;" *ngIf="isDoctorAvailableOnDate(selectedDoctor.id)">
+                <button class="btn-primary"
+                        [disabled]="!selectedDate || savingSlots"
+                        (click)="uploadOrUpdateSlots(selectedDoctor.id)">
+                  {{ savingSlots ? 'Saving...' : 'Save Slots for ' + selectedDate }}
+                </button>
               </div>
 
-              <div *ngIf="selectedDoctor.available != 1" class="unavail-overlay">
-                <span>Mark doctor as available to manage slots</span>
+              <div *ngIf="!isDoctorAvailableOnDate(selectedDoctor.id)" class="unavail-overlay">
+                <span>Mark doctor as available on this date to manage time slots</span>
               </div>
-
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-  </div>
-</div>
+          </div><!-- /selectedDoctor -->
+        </div><!-- /edit-panel -->
+
+      </div><!-- /manage-layout -->
+    </div><!-- /tab-panel edit -->
+
+  </div><!-- /page-content -->
+</div><!-- /page-layout -->
 
 <footer class="site-footer">
   <span>© 2025 Hospital Management System</span>

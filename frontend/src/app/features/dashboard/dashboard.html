@@ -1,6 +1,7 @@
 <main class="container-fluid py-5 page-layout">
   <div class="row px-lg-4">
     
+    <!-- ── Left sidebar: book form (when no doctor selected) ── -->
     <div class="col-xl-4 col-lg-5 mb-4 mb-lg-0" *ngIf="!selectedDoctorId">
       <div class="sticky-sidebar card border-0 shadow-sm p-4 rounded-4 bg-white">
         <h3 class="fw-bold text-dark mb-3">Book an Appointment</h3>
@@ -9,7 +10,8 @@
         <div class="form-group mb-4">
           <label class="form-label fw-bold small text-uppercase text-muted tracking-wider">Select Doctor</label>
           <div class="select-wrapper position-relative">
-            <select class="form-select form-select-lg py-3 border-2 custom-select-input" [(ngModel)]="selectedDoctorId" (change)="onDoctorChange()">
+            <select class="form-select form-select-lg py-3 border-2 custom-select-input"
+                    [(ngModel)]="selectedDoctorId" (change)="onDoctorChange()">
               <option [ngValue]="null">Choose medical provider...</option>
               <option *ngFor="let doc of doctors" [ngValue]="doc.id">
                 {{ doc.name }} — {{ doc.specialization }}
@@ -29,30 +31,53 @@
           </div>
           <div class="step d-flex gap-0">
             <div class="step-num bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center">3</div>
-            <div class="ms-3"><p class="mb-0 fw-semibold text-dark">Confirm Booking</p><small class="text-muted">Secure your appointment instant</small></div>
+            <div class="ms-3"><p class="mb-0 fw-semibold text-dark">Confirm Booking</p><small class="text-muted">Secure your appointment instantly</small></div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- ── Doctor detail + booking panel ── -->
     <div class="col-12" *ngIf="selectedDoctorId">
-      <button class="btn btn-link text-decoration-none text-primary fw-semibold p-0 mb-4 d-inline-flex align-items-center gap-2 back-btn" (click)="selectedDoctorId = null">
+      <button class="btn btn-link text-decoration-none text-primary fw-semibold p-0 mb-4 d-inline-flex align-items-center gap-2 back-btn"
+              (click)="selectedDoctorId = null">
         ← Back to Specializations
       </button>
       
       <ng-container *ngFor="let doc of doctors; trackBy: trackById">
         <div class="row" *ngIf="doc.id === selectedDoctorId">
+
+          <!-- Doctor info card -->
           <div class="col-lg-6 mb-4">
             <div class="card border-0 shadow p-4 rounded-4 bg-white h-100 position-relative overflow-hidden">
-              <div class="status-badge-absolute" [ngClass]="doc.available === 1 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
-                ● {{ doc.available === 1 ? 'Available Today' : 'Not Available' }}
+
+              <!-- Global availability badge (always shown) -->
+              <div class="status-badge-absolute"
+                   [ngClass]="doc.available === 1 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
+                ● {{ doc.available === 1 ? 'Generally Available' : 'Generally Unavailable' }}
+              </div>
+
+              <!-- Date-specific availability banner (shown only after date selected) -->
+              <div *ngIf="selectedDate && hasSlotsLoaded(doc.id)"
+                   class="date-avail-banner mt-5"
+                   [ngClass]="isDoctorAvailableOnDate(doc.id) ? 'date-avail-yes' : 'date-avail-no'">
+                <span *ngIf="isDoctorAvailableOnDate(doc.id)">
+                  ✓ Available on {{ selectedDate }}
+                </span>
+                <span *ngIf="!isDoctorAvailableOnDate(doc.id)">
+                  ✕ Not Available on {{ selectedDate }} — Please choose a different date
+                </span>
               </div>
               
               <div class="d-flex align-items-start gap-4 mt-3">
-                <img [src]="'http://localhost:8080' + doc.image" class="rounded-circle border border-4 border-light shadow-sm" width="110" height="110" style="object-fit: cover;" [alt]="doc.name">
+                <img [src]="'http://localhost:8080' + doc.image"
+                     class="rounded-circle border border-4 border-light shadow-sm"
+                     width="110" height="110" style="object-fit: cover;" [alt]="doc.name">
                 <div class="flex-grow-1">
                   <h2 class="fw-bold text-dark mb-1">{{ doc.name }}</h2>
-                  <span class="badge bg-primary-subtle text-primary mb-3 px-3 py-2 rounded-pill fw-semibold">{{ doc.specialization }}</span>
+                  <span class="badge bg-primary-subtle text-primary mb-3 px-3 py-2 rounded-pill fw-semibold">
+                    {{ doc.specialization }}
+                  </span>
                   
                   <div class="doctor-meta-grid">
                     <div class="meta-item"><span class="meta-icon">💼</span> <strong>Experience:</strong> {{ doc.experience }} Years</div>
@@ -69,34 +94,73 @@
             </div>
           </div>
 
+          <!-- Booking panel -->
           <div class="col-lg-6 mb-4">
             <div class="card border-0 shadow p-4 rounded-4 bg-white h-100">
               <h3 class="fw-bold text-dark mb-3">Schedule Appointment</h3>
               
+              <!-- Step 1: Choose date -->
               <div class="mb-4">
                 <label class="form-label fw-bold small text-muted text-uppercase">1. Choose Date</label>
-                <input type="date" [(ngModel)]="selectedDate" (change)="onDateChange(doc.id)" class="form-control form-control-lg border-2 py-3 shadow-none custom-date-input" [min]="today">
+                <input type="date" [(ngModel)]="selectedDate"
+                       (change)="onDateChange(doc.id)"
+                       class="form-control form-control-lg border-2 py-3 shadow-none custom-date-input"
+                       [min]="today">
               </div>
 
+              <!-- Doctor unavailable on selected date warning -->
+              <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && !isDoctorAvailableOnDate(doc.id)"
+                   class="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3">
+                <span>🚫</span>
+                <span class="small fw-semibold">Dr. {{ doc.name }} is not available on {{ selectedDate }}. Please select another date.</span>
+              </div>
+
+              <!-- Step 2: Choose time slot -->
               <div class="mb-4">
                 <label class="form-label fw-bold small text-muted text-uppercase d-block mb-3">2. Choose Time Slot</label>
+
+                <!-- Loading indicator -->
+                <div *ngIf="loadingSlots && selectedDate" class="text-muted fst-italic p-3 rounded bg-light border text-center">
+                  Loading available slots...
+                </div>
                 
-                <div *ngIf="!selectedDate || !doctorSlots[doc.id + '_' + selectedDate]" class="text-muted fst-italic p-3 rounded bg-light border text-center">
+                <!-- No date selected -->
+                <div *ngIf="!selectedDate && !loadingSlots" class="text-muted fst-italic p-3 rounded bg-light border text-center">
+                  Select a date to see available appointment windows.
+                </div>
+
+                <!-- Slots not yet loaded for this date -->
+                <div *ngIf="selectedDate && !hasSlotsLoaded(doc.id) && !loadingSlots"
+                     class="text-muted fst-italic p-3 rounded bg-light border text-center">
                   Select a date to fetch available appointment windows.
                 </div>
 
-                <div *ngIf="selectedDate && doctorSlots[doc.id + '_' + selectedDate]" class="time-slots-container">
-                  <button *ngFor="let s of slots" class="btn slot-pill-btn" [ngClass]="{
-                              'slot-available': !isSlotDisabled(doc.id, s) && selectedTime !== s,
-                              'slot-disabled': isSlotDisabled(doc.id, s),
-                              'slot-selected': selectedTime === s && !isSlotDisabled(doc.id, s)
-                            }" [disabled]="isSlotDisabled(doc.id, s)" (click)="selectedTime = s">
+                <!-- Slots grid: shown when loaded, doctor available on date -->
+                <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && isDoctorAvailableOnDate(doc.id)"
+                     class="time-slots-container">
+                  <button *ngFor="let s of slots"
+                          class="btn slot-pill-btn"
+                          [ngClass]="{
+                            'slot-available': !isSlotDisabled(doc.id, s) && selectedTime !== s,
+                            'slot-disabled':  isSlotDisabled(doc.id, s),
+                            'slot-selected':  selectedTime === s && !isSlotDisabled(doc.id, s)
+                          }"
+                          [disabled]="isSlotDisabled(doc.id, s)"
+                          (click)="selectedTime = s">
                     {{ s }}
                   </button>
                 </div>
+
+                <!-- All slots blocked because doctor unavailable -->
+                <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && !isDoctorAvailableOnDate(doc.id)"
+                     class="text-danger fst-italic p-3 rounded bg-danger-subtle border border-danger-subtle text-center small">
+                  No slots available — doctor is not accepting appointments on this date.
+                </div>
               </div>
 
-              <button class="btn btn-success w-100 fw-bold py-3 text-uppercase tracking-wider shadow border-0 confirm-booking-btn" [disabled]="!selectedDate || !selectedTime || doc.available !== 1" (click)="book(doc.id)">
+              <button class="btn btn-success w-100 fw-bold py-3 text-uppercase tracking-wider shadow border-0 confirm-booking-btn"
+                      [disabled]="!selectedDate || !selectedTime || !isDoctorAvailableOnDate(doc.id)"
+                      (click)="book(doc.id)">
                 Confirm and Secure Slot
               </button>
             </div>
@@ -105,6 +169,7 @@
       </ng-container>
     </div>
 
+    <!-- ── Specializations grid (when no doctor selected) ── -->
     <div class="col-xl-8 col-lg-7" *ngIf="!selectedDoctorId">
       <div class="mb-4">
         <h3 class="fw-bold text-dark mb-1">Medical Specialties</h3>
@@ -128,6 +193,7 @@
 
   </div>
 
+  <!-- ── Active Appointments ── -->
   <div class="row mt-5 px-lg-4" *ngIf="appointments.length > 0">
     <div class="col-12">
       <div class="card border-0 shadow-sm p-4 rounded-4 bg-white">
@@ -147,7 +213,7 @@
                 <td class="fw-bold text-dark">{{ getDoctorName(app.doctor_id) }}</td>
                 <td><span class="badge bg-light text-dark border px-3 py-2 font-monospace">{{ formatDateOnly(app.date) }}</span></td>
                 <td><span class="badge bg-primary-subtle text-primary px-3 py-2 font-monospace">{{ app.time }}</span></td>
-                <td><span class="badge bg-warning-subtle text-warning px-3 py-2 font-monospace">{{app.status}}</span></td>
+                <td><span class="badge bg-warning-subtle text-warning px-3 py-2 font-monospace">{{ app.status }}</span></td>
               </tr>
             </tbody>
           </table>

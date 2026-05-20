@@ -6,6 +6,8 @@ import { NavbarComponent } from '../../../shared/navbar/navbar';
 import { SidebarComponent } from '../../../shared/sidebar/sidebar';
 import { RouterModule } from '@angular/router';
 
+const API = 'http://localhost:8080';
+
 @Component({
   selector: 'app-doctors',
   standalone: true,
@@ -20,6 +22,7 @@ export class DoctorsComponent implements OnInit {
   successMsg = '';
   errorMsg = '';
 
+  // ── Add form fields ──────────────────────────────────────────
   name = '';
   specialization = '';
   experience = '';
@@ -31,6 +34,7 @@ export class DoctorsComponent implements OnInit {
   imagePreview: string | null = null;
   imageError = '';
 
+  // ── Doctors list ─────────────────────────────────────────────
   doctors: any[] = [];
   filteredDoctors: any[] = [];
   selectedDoctor: any = null;
@@ -38,14 +42,23 @@ export class DoctorsComponent implements OnInit {
   editImagePreview: string | null = null;
   editImageError = '';
 
+  // ── Slot management ──────────────────────────────────────────
   selectedDate: string = new Date().toISOString().split('T')[0];
 
   readonly ALL_SLOTS = [
-    "09:00","10:00","11:00","12:00","13:00","14:00",
-    "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
+    '09:00','10:00','11:00','12:00','13:00','14:00',
+    '15:00','16:00','17:00','18:00','19:00','20:00','21:00'
   ];
+
+  // doctorSlots[`${docId}_${date}`][time] = 0|1
   doctorSlots: { [slotKey: string]: { [time: string]: number } } = {};
-  pendingToggles: Set<string> = new Set();
+
+  // date-wise availability override per doctor
+  // dateAvailability[`${docId}_${date}`] = true|false|null (null=not loaded yet)
+  dateAvailability: { [key: string]: boolean | null } = {};
+
+  savingSlots = false;
+  savingAvailability = false;
 
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
@@ -58,6 +71,8 @@ export class DoctorsComponent implements OnInit {
   }
 
   clearMessages() { this.successMsg = ''; this.errorMsg = ''; }
+
+  // ── Image handling ───────────────────────────────────────────
 
   onFileSelected(e: Event) {
     const f = (e.target as HTMLInputElement).files?.[0];
@@ -105,6 +120,8 @@ export class DoctorsComponent implements OnInit {
   }
   removeEditPhoto() { this.editImageFile = null; this.editImagePreview = null; this.editImageError = ''; }
 
+  // ── Add doctor ───────────────────────────────────────────────
+
   addDoctor() {
     if (!this.name.trim() || !this.specialization.trim()) {
       this.errorMsg = 'Name and Specialization are required.'; return;
@@ -120,15 +137,14 @@ export class DoctorsComponent implements OnInit {
     fd.append('available', String(this.available));
     if (this.imageFile) fd.append('image', this.imageFile);
 
-    this.http.post('http://localhost:8080/doctors', fd, { responseType: 'text' })
-      .subscribe({
-        next: () => {
-          this.successMsg = 'Doctor added successfully!';
-          this.resetAddForm();
-          this.loadDoctors();
-        },
-        error: () => { this.errorMsg = 'Error adding doctor. Please try again.'; }
-      });
+    this.http.post(`${API}/doctors`, fd, { responseType: 'text' }).subscribe({
+      next: () => {
+        this.successMsg = 'Doctor added successfully!';
+        this.resetAddForm();
+        this.loadDoctors();
+      },
+      error: () => { this.errorMsg = 'Error adding doctor. Please try again.'; }
+    });
   }
 
   resetAddForm() {
@@ -138,8 +154,10 @@ export class DoctorsComponent implements OnInit {
     this.removePhoto();
   }
 
+  // ── Load / filter doctors ────────────────────────────────────
+
   loadDoctors() {
-    this.http.get<any[]>('http://localhost:8080/doctors').subscribe({
+    this.http.get<any[]>(`${API}/doctors`).subscribe({
       next: (res) => {
         this.doctors = res;
         this.filteredDoctors = [...res];
@@ -163,12 +181,15 @@ export class DoctorsComponent implements OnInit {
     this.removeEditPhoto();
     this.clearMessages();
     this.loadSlots(doc.id, this.selectedDate);
+    this.loadDateAvailability(doc.id, this.selectedDate);
     setTimeout(() => {
       document.getElementById('editFormSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
   }
 
   clearSelection() { this.selectedDoctor = null; this.removeEditPhoto(); }
+
+  // ── Update / delete doctor ───────────────────────────────────
 
   updateDoctor() {
     if (!this.selectedDoctor) return;
@@ -183,9 +204,7 @@ export class DoctorsComponent implements OnInit {
     fd.append('available', String(this.selectedDoctor.available));
     if (this.editImageFile) fd.append('image', this.editImageFile);
 
-    this.http.put(
-      `http://localhost:8080/doctors/${this.selectedDoctor.id}`, fd, { responseType: 'text' }
-    ).subscribe({
+    this.http.put(`${API}/doctors/${this.selectedDoctor.id}`, fd, { responseType: 'text' }).subscribe({
       next: () => {
         this.successMsg = 'Doctor updated successfully!';
         this.loadDoctors();
@@ -198,13 +217,13 @@ export class DoctorsComponent implements OnInit {
 
   deleteDoctor(id: number) {
     if (!confirm('Are you sure you want to delete this doctor?')) return;
-    this.http.delete(`http://localhost:8080/doctors/${id}`, { responseType: 'text' }).subscribe({
+    this.http.delete(`${API}/doctors/${id}`, { responseType: 'text' }).subscribe({
       next: () => {
         this.successMsg = 'Doctor deleted.';
+        // Clear cached slots for this doctor
         const prefix = `${id}_`;
-        Object.keys(this.doctorSlots).forEach(key => {
-          if (key.startsWith(prefix)) delete this.doctorSlots[key];
-        });
+        Object.keys(this.doctorSlots).forEach(k => { if (k.startsWith(prefix)) delete this.doctorSlots[k]; });
+        Object.keys(this.dateAvailability).forEach(k => { if (k.startsWith(prefix)) delete this.dateAvailability[k]; });
         this.loadDoctors();
         if (this.selectedDoctor?.id === id) this.selectedDoctor = null;
         this.cdr.detectChanges();
@@ -213,23 +232,55 @@ export class DoctorsComponent implements OnInit {
     });
   }
 
+  // ── Slot helpers ─────────────────────────────────────────────
+
+  /**
+   * Load slots for a doctor on a specific date.
+   * Also respects date-wise availability returned by backend.
+   */
   loadSlots(doctorId: number, date: string) {
-    this.http.get<any[]>(`http://localhost:8080/slots/${doctorId}?date=${date}`).subscribe({
+    if (!date) return;
+    this.http.get<any>(`${API}/slots/${doctorId}?date=${date}`).subscribe({
       next: (res) => {
+        const slots = Array.isArray(res) ? res : res.slots;
         const map: { [time: string]: number } = {};
-        res.forEach((s: any) => { map[s.time] = Number(s.available); });
+        if (slots) slots.forEach((s: any) => { map[s.time] = Number(s.available); });
         const slotKey = `${doctorId}_${date}`;
         this.doctorSlots[slotKey] = map;
+
+        // Sync date availability if backend returned it
+        if (!Array.isArray(res) && res.doctorAvailableOnDate !== undefined) {
+          const avKey = `${doctorId}_${date}`;
+          if (res.doctorAvailableOnDate === null) {
+            // no override — use global flag
+            this.dateAvailability[avKey] = null;
+          } else {
+            this.dateAvailability[avKey] = res.doctorAvailableOnDate;
+          }
+        }
         this.cdr.detectChanges();
       },
-      error: () => console.error(`Failed to load slots for doctor ${doctorId} on date ${date}`)
+      error: () => console.error(`Failed to load slots for doctor ${doctorId} on ${date}`)
+    });
+  }
+
+  /** Fetch date-specific availability override */
+  loadDateAvailability(doctorId: number, date: string) {
+    if (!date) return;
+    this.http.get<any>(`${API}/doctors/${doctorId}/availability?date=${date}`).subscribe({
+      next: (res) => {
+        const avKey = `${doctorId}_${date}`;
+        this.dateAvailability[avKey] = res.is_available;
+        this.cdr.detectChanges();
+      },
+      error: () => console.error(`Failed to load date availability for doctor ${doctorId}`)
     });
   }
 
   onDateChange() {
-    if (this.selectedDoctor) {
-      this.loadSlots(this.selectedDoctor.id, this.selectedDate);
-    }
+    if (!this.selectedDoctor) return;
+    this.loadSlots(this.selectedDoctor.id, this.selectedDate);
+    this.loadDateAvailability(this.selectedDoctor.id, this.selectedDate);
   }
 
   isChecked(docId: number, time: string): boolean {
@@ -238,93 +289,107 @@ export class DoctorsComponent implements OnInit {
     return map ? map[time] === 1 : false;
   }
 
-  toggleSlot(docId: number, time: string, event: Event) {
-    const checkbox = event.target as HTMLInputElement;
-
-    if (this.selectedDoctor && !this.selectedDoctor.available) {
-      checkbox.checked = false;
-      return;
+  /** Is doctor available on the currently selected date? */
+  isDoctorAvailableOnDate(docId: number): boolean {
+    const avKey = `${docId}_${this.selectedDate}`;
+    const override = this.dateAvailability[avKey];
+    if (override === null || override === undefined) {
+      // Fall back to global availability flag on selectedDoctor
+      return this.selectedDoctor?.available == 1;
     }
-
-    const newAvailable = checkbox.checked ? 1 : 0;
-    const slotKey = `${docId}_${this.selectedDate}`;
-    const pendingKey = `${docId}_${this.selectedDate}_${time}`;
-    if (this.pendingToggles.has(pendingKey)) { checkbox.checked = !checkbox.checked; return; }
-
-    if (!this.doctorSlots[slotKey]) this.doctorSlots[slotKey] = {};
-    this.doctorSlots[slotKey][time] = newAvailable;
-    this.cdr.detectChanges();
-    this.pendingToggles.add(pendingKey);
-
-    this.http.post<any>('http://localhost:8080/slots',
-      { doctor_id: docId, date: this.selectedDate, time, available: newAvailable }).subscribe({
-      next: (res) => {
-        this.doctorSlots[slotKey][time] = Number(res.available);
-        this.pendingToggles.delete(pendingKey);
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.doctorSlots[slotKey][time] = newAvailable === 1 ? 0 : 1;
-        checkbox.checked = !checkbox.checked;
-        this.pendingToggles.delete(pendingKey);
-        this.cdr.detectChanges();
-        alert(`Failed to update slot ${time}. Please try again.`);
-      }
-    });
+    return override;
   }
 
+  /** Local toggle: just updates UI state, committed via Save button */
   localToggleSlot(time: string, event: Event) {
     if (!this.selectedDoctor) return;
     const checkbox = event.target as HTMLInputElement;
-    if (!this.selectedDoctor.available) {
+    if (!this.isDoctorAvailableOnDate(this.selectedDoctor.id)) {
       checkbox.checked = false;
       return;
     }
     const docId = this.selectedDoctor.id;
     const slotKey = `${docId}_${this.selectedDate}`;
-    if (!this.doctorSlots[slotKey]) {
-      this.doctorSlots[slotKey] = {};
-    }
+    if (!this.doctorSlots[slotKey]) this.doctorSlots[slotKey] = {};
     this.doctorSlots[slotKey][time] = checkbox.checked ? 1 : 0;
     this.cdr.detectChanges();
   }
 
+  /**
+   * Save all slot toggles for the selected date.
+   * Sends a batch POST to /slots.
+   */
   uploadOrUpdateSlots(docId: number) {
     if (!this.selectedDate) {
       this.errorMsg = 'Please select a valid date first.';
       return;
     }
+    if (!this.isDoctorAvailableOnDate(docId)) {
+      this.errorMsg = 'Doctor is marked unavailable on this date. Mark as available first.';
+      return;
+    }
     this.clearMessages();
+    this.savingSlots = true;
+
     const slotKey = `${docId}_${this.selectedDate}`;
     const localMap = this.doctorSlots[slotKey] || {};
-    
+
     const slotsPayload = this.ALL_SLOTS.map(time => ({
       time,
       available: localMap[time] !== undefined ? localMap[time] : 0
     }));
 
-    const pendingKeys: string[] = [];
-    this.ALL_SLOTS.forEach(time => {
-      const pKey = `${docId}_${this.selectedDate}_${time}`;
-      this.pendingToggles.add(pKey);
-      pendingKeys.push(pKey);
-    });
-    this.cdr.detectChanges();
-
-    this.http.post<any>('http://localhost:8080/slots', {
+    this.http.post<any>(`${API}/slots`, {
       doctor_id: docId,
       date: this.selectedDate,
       slots: slotsPayload
     }).subscribe({
       next: () => {
-        this.successMsg = 'Slots configured and updated successfully.';
-        pendingKeys.forEach(pKey => this.pendingToggles.delete(pKey));
+        this.successMsg = `Slots saved for ${this.selectedDate} successfully!`;
+        this.savingSlots = false;
         this.loadSlots(docId, this.selectedDate);
+        this.cdr.detectChanges();
       },
       error: () => {
-        this.errorMsg = 'Error applying slot setup configurations.';
-        pendingKeys.forEach(pKey => this.pendingToggles.delete(pKey));
+        this.errorMsg = 'Error saving slot configuration. Please try again.';
+        this.savingSlots = false;
         this.loadSlots(docId, this.selectedDate);
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  // ── Date-wise Availability ───────────────────────────────────
+
+  /**
+   * Admin marks doctor available/not-available on selected date.
+   * Persists to doctor_availability table.
+   */
+  saveDateAvailability(docId: number, isAvailable: boolean) {
+    if (!this.selectedDate) {
+      this.errorMsg = 'Please select a date first.';
+      return;
+    }
+    this.clearMessages();
+    this.savingAvailability = true;
+
+    this.http.post<any>(`${API}/doctors/${docId}/availability`, {
+      date: this.selectedDate,
+      is_available: isAvailable
+    }).subscribe({
+      next: () => {
+        const avKey = `${docId}_${this.selectedDate}`;
+        this.dateAvailability[avKey] = isAvailable;
+        this.successMsg = `Doctor marked as ${isAvailable ? 'Available' : 'Unavailable'} on ${this.selectedDate}.`;
+        this.savingAvailability = false;
+        // Reload slots to reflect change
+        this.loadSlots(docId, this.selectedDate);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.errorMsg = 'Error updating date availability. Please try again.';
+        this.savingAvailability = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -332,19 +397,6 @@ export class DoctorsComponent implements OnInit {
   onAvailabilityChange(value: boolean) {
     if (!this.selectedDoctor) return;
     this.selectedDoctor.available = value ? 1 : 0;
-
-    if (!value && this.selectedDoctor.id) {
-      const docId = this.selectedDoctor.id;
-      const slotKey = `${docId}_${this.selectedDate}`;
-      const slots = this.doctorSlots[slotKey] || {};
-      const updates = Object.keys(slots)
-        .filter(time => slots[time] === 1)
-        .map(time =>
-          this.http.post<any>('http://localhost:8080/slots',
-            { doctor_id: docId, date: this.selectedDate, time, available: 0 }).toPromise()
-        );
-      Promise.all(updates).then(() => this.loadSlots(docId, this.selectedDate));
-    }
   }
 
   trackById(index: number, item: any) { return item.id; }
