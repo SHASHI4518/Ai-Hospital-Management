@@ -1,81 +1,102 @@
 <app-navbar></app-navbar>
 
-<div class="d-flex">
-
-  <!-- Sidebar -->
+<div class="page-layout">
   <app-sidebar></app-sidebar>
 
-  <!-- Main Content -->
-  <div class="p-4 w-100" style="background:#f5f6fa; min-height:100vh;">
+  <div class="page-content">
 
-    <div class="container">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Appointments</h2>
+        <p class="page-subtitle">View and manage all patient appointments</p>
+      </div>
+    </div>
 
-      <h3 class="mb-4 fw-bold text-dark"> Appointments</h3>
-
-      <div class="card shadow-lg border-0 rounded-4">
-
-        <div class="card-body">
-
-          <div class="table-responsive">
-
-            <table class="table align-middle">
-
-              <thead class="table-light">
-                <tr>
-                  <th>#</th>
-                  <th>Patient</th>
-                  <th>Doctor</th>
-                  <th>Date</th>
-                  <th>Time</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                <tr *ngFor="let a of appointments; let i = index">
-
-                  <td>{{ i + 1 }}</td>
-
-                  <td class="fw-semibold">{{ a.patient_name }}</td>
-
-                  <td class="text-primary fw-semibold">
-                    {{ a.doctor_name }}
-                  </td>
-
-                  <td>{{ a.date | date:'MMM d, y' }}</td>
-
-                  <td>{{ a.time }}</td>
-
-                  <td>
-                    <span class="badge px-3 py-2"
-                          [ngClass]="a.status === 'booked' ? 'bg-success' : 'bg-danger'">
-                      {{ a.status }}
-                    </span>
-                  </td>
-
-                  <td>
-                    <button class="btn btn-outline-danger btn-sm px-3"
-                            (click)="cancel(a.id)">
-                      Cancel
-                    </button>
-                  </td>
-
-                </tr>
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        </div>
-
+    <!-- Filters -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input"
+               placeholder="Search patient or doctor..."
+               [(ngModel)]="searchText" (input)="onSearch()">
       </div>
 
+      <div class="filter-tabs">
+        <button class="filter-tab" [class.active]="filterStatus === 'all'"
+                (click)="filterStatus = 'all'; onFilterChange()">All</button>
+        <button class="filter-tab" [class.active]="filterStatus === 'booked'"
+                (click)="filterStatus = 'booked'; onFilterChange()">Booked</button>
+        <button class="filter-tab" [class.active]="filterStatus === 'cancelled'"
+                (click)="filterStatus = 'cancelled'; onFilterChange()">Cancelled</button>
+      </div>
+
+      <div class="total-count">
+        <span>{{ filteredAppointments.length }} appointments</span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-card">
+      <div *ngIf="loading" class="loading-state">Loading appointments…</div>
+
+      <div *ngIf="!loading" class="table-wrap">
+        <table class="appt-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Patient</th>
+              <th>Doctor</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of filteredAppointments; let i = index">
+              <td class="num">{{ i + 1 }}</td>
+              <td class="patient-name">{{ a.patient_name }}</td>
+              <td class="doctor-name">{{ a.doctor_name }}</td>
+              <td>{{ a.date | date:'MMM d, y' }}</td>
+              <td>{{ a.time }}</td>
+              <td>
+                <!-- Change 6: Status badge reflects 'cancelled' from DB, not just removed -->
+                <span class="status-badge"
+                      [class.booked]="a.status === 'booked'"
+                      [class.cancelled]="a.status === 'cancelled'">
+                  <span class="status-dot"></span>
+                  {{ a.status }}
+                </span>
+              </td>
+              <td>
+                <div class="action-group">
+                  <!-- Change 6: Cancel updates status to 'cancelled' in DB -->
+                  <button *ngIf="a.status === 'booked'"
+                          class="btn-action cancel"
+                          (click)="cancel(a.id)">
+                    Cancel
+                  </button>
+                  <span *ngIf="a.status === 'cancelled'" class="already-cancelled">Cancelled</span>
+
+                  <!-- Separate hard-delete option -->
+                  <button class="btn-action delete"
+                          (click)="hardDelete(a.id)"
+                          title="Permanently delete">🗑</button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="filteredAppointments.length === 0 && !loading">
+              <td colspan="7" class="empty-row">No appointments found</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </div>
-
 </div>
+
+<footer class="site-footer">
+  <span>© 2025 Hospital Management System</span>
+</footer>

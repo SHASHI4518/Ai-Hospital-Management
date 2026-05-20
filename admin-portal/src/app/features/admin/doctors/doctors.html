@@ -1,51 +1,335 @@
 <app-navbar></app-navbar>
 
-<div class="d-flex">
-
+<div class="page-layout">
   <app-sidebar></app-sidebar>
 
-  <div class="p-4 w-100">
+  <div class="page-content">
 
-    <h3 class="mb-4">Doctors Management</h3>
-
-    <!-- ================= ADD DOCTOR ================= -->
-    <div class="card p-4 mb-4">
-      <h4>Add Doctor</h4>
-
-      <input [(ngModel)]="name" placeholder="Name" class="form-control mb-2">
-      <input [(ngModel)]="specialization" placeholder="Specialization" class="form-control mb-2">
-      <input [(ngModel)]="experience" placeholder="Experience" class="form-control mb-2">
-      <input [(ngModel)]="clinic" placeholder="Clinic" class="form-control mb-2">
-      <input [(ngModel)]="location" placeholder="Location" class="form-control mb-2">
-      <input [(ngModel)]="fee" placeholder="Fee" class="form-control mb-2">
-      <div class="mb-2">
-      <label class="form-label">Doctor Photo</label>
-      <div class="upload-zone" (click)="photoInput.click()"
-       (dragover)="$event.preventDefault(); dropZone.classList.add('drag-over')"
-       (dragleave)="dropZone.classList.remove('drag-over')"
-       (drop)="onDrop($event)" #dropZone>
-    <input type="file" accept="image/jpeg,image/png,image/webp"
-           (change)="onFileSelected($event)" #photoInput hidden>
-    <span style="font-size:28px">📷</span>
-    <p class="mb-0 mt-1">Drag &amp; drop or click to browse</p>
-    <small class="text-muted">JPG, PNG, WEBP · Max 5 MB</small>
-  </div>
-  <div *ngIf="imagePreview" class="d-flex align-items-center gap-2 mt-2 p-2 border rounded">
-    <img [src]="imagePreview" style="width:52px;height:52px;border-radius:50%;object-fit:cover">
-    <span class="text-truncate flex-grow-1" style="font-size:13px">{{ imageFile?.name }}</span>
-    <button type="button" class="btn btn-sm btn-outline-danger" (click)="removePhoto()">Remove</button>
-  </div>
-  <small *ngIf="imageError" class="text-danger">{{ imageError }}</small>
-</div>
-    
-      <div class="form-check mb-3">
-        <input type="checkbox" [(ngModel)]="available" class="form-check-input">
-        <label>Available</label>
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">Doctors Management</h2>
+        <p class="page-subtitle">Add new doctors or manage existing ones</p>
       </div>
+    </div>
 
-      <button class="btn btn-primary w-100" (click)="addDoctor()">
-        Add Doctor
+    <div *ngIf="successMsg" class="alert-banner success">
+      <span class="alert-icon">✓</span> {{ successMsg }}
+      <button class="alert-close" (click)="clearMessages()">×</button>
+    </div>
+    <div *ngIf="errorMsg" class="alert-banner error">
+      <span class="alert-icon">!</span> {{ errorMsg }}
+      <button class="alert-close" (click)="clearMessages()">×</button>
+    </div>
+
+    <div class="tab-nav">
+      <button class="tab-btn" [class.active]="activeTab === 'add'" (click)="switchTab('add')">
+        <span class="tab-icon">＋</span> Add Doctor
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'edit'" (click)="switchTab('edit')">
+        <span class="tab-icon">✎</span> Manage Doctors
       </button>
     </div>
 
-   
+    <div *ngIf="activeTab === 'add'" class="tab-panel">
+
+      <div class="form-card">
+        <div class="form-card-header">
+          <div class="form-card-icon add-icon">＋</div>
+          <div>
+            <h4 class="form-card-title">Add New Doctor</h4>
+            <p class="form-card-subtitle">Fill in the details to register a new doctor</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+
+          <div class="form-field full-width">
+            <label class="field-label">Doctor Photo</label>
+            <div class="upload-zone" (click)="addPhotoInput.click()"
+                 (dragover)="$event.preventDefault(); addDropZone.classList.add('drag-over')"
+                 (dragleave)="addDropZone.classList.remove('drag-over')"
+                 (drop)="onDrop($event)" #addDropZone>
+              <input type="file" accept="image/jpeg,image/png,image/webp"
+                     (change)="onFileSelected($event)" #addPhotoInput hidden>
+              <div *ngIf="!imagePreview" class="upload-placeholder">
+                <span class="upload-icon">📷</span>
+                <p class="upload-text">Drag & drop or click to upload</p>
+                <small class="upload-hint">JPG, PNG, WEBP · Max 5 MB</small>
+              </div>
+              <div *ngIf="imagePreview" class="upload-preview">
+                <img [src]="imagePreview" class="preview-img" alt="Preview">
+                <div class="preview-info">
+                  <span class="preview-name">{{ imageFile?.name }}</span>
+                  <button type="button" class="btn-remove" (click)="$event.stopPropagation(); removePhoto()">Remove</button>
+                </div>
+              </div>
+            </div>
+            <small *ngIf="imageError" class="field-error">{{ imageError }}</small>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Full Name <span class="required">*</span></label>
+            <input [(ngModel)]="name" class="field-input" placeholder="Dr. John Smith">
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Specialization <span class="required">*</span></label>
+            <input [(ngModel)]="specialization" class="field-input" placeholder="e.g. Cardiologist">
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Experience</label>
+            <input [(ngModel)]="experience" class="field-input" placeholder="e.g. 10 years">
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Consultation Fee (₹)</label>
+            <input [(ngModel)]="fee" class="field-input" type="number" placeholder="500">
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Clinic / Hospital</label>
+            <input [(ngModel)]="clinic" class="field-input" placeholder="Apollo Hospital">
+          </div>
+
+          <div class="form-field">
+            <label class="field-label">Location</label>
+            <input [(ngModel)]="location" class="field-input" placeholder="Hyderabad, Telangana">
+          </div>
+
+          <div class="form-field full-width">
+            <label class="field-label">Availability</label>
+            <div class="toggle-group">
+              <label class="toggle-switch">
+                <input type="checkbox" [(ngModel)]="available">
+                <span class="toggle-track">
+                  <span class="toggle-thumb"></span>
+                </span>
+              </label>
+              <span class="toggle-label" [class.available]="available" [class.unavailable]="!available">
+                {{ available ? 'Available for appointments' : 'Not available today' }}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-secondary" (click)="resetAddForm()">Clear Form</button>
+          <button class="btn-primary" (click)="addDoctor()">Add Doctor</button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="activeTab === 'edit'" class="tab-panel">
+
+      <div class="manage-layout">
+
+        <div class="doctors-list-panel">
+
+          <div class="panel-header">
+            <h4 class="panel-title">All Doctors</h4>
+            <span class="doctor-count">{{ filteredDoctors.length }}</span>
+          </div>
+
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input"
+                   placeholder="Search name, specialty, location..."
+                   [(ngModel)]="searchText" (input)="filterDoctors()">
+          </div>
+
+          <div class="doctor-list-scroll">
+            <div *ngFor="let doc of filteredDoctors; trackBy: trackById"
+                 class="doctor-list-item"
+                 [class.selected]="selectedDoctor?.id === doc.id"
+                 (click)="selectDoctor(doc)">
+
+              <div class="doctor-avatar">
+                <img *ngIf="doc.image" [src]="'http://localhost:8080' + doc.image"
+                     alt="{{ doc.name }}" class="avatar-img">
+                <span *ngIf="!doc.image" class="avatar-initials">
+                  {{ doc.name.charAt(0) }}
+                </span>
+              </div>
+
+              <div class="doctor-info">
+                <span class="doctor-name">{{ doc.name }}</span>
+                <span class="doctor-spec">{{ doc.specialization }}</span>
+                <span class="avail-badge" [class.avail-yes]="doc.available == 1" [class.avail-no]="doc.available != 1">
+                  {{ doc.available == 1 ? '● Available' : '● Unavailable' }}
+                </span>
+              </div>
+
+              <div class="list-actions">
+                <button class="btn-icon danger" (click)="$event.stopPropagation(); deleteDoctor(doc.id)"
+                        title="Delete">🗑</button>
+              </div>
+
+            </div>
+
+            <div *ngIf="filteredDoctors.length === 0" class="empty-state">
+              <span>No doctors found</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="edit-panel" id="editFormSection">
+
+          <div *ngIf="!selectedDoctor" class="no-selection">
+            <span class="no-sel-icon">👈</span>
+            <h5>Select a doctor to edit</h5>
+            <p>Click any doctor from the list to view and edit their details</p>
+          </div>
+
+          <div *ngIf="selectedDoctor">
+
+            <div class="form-card">
+              <div class="form-card-header">
+                <div class="form-card-icon edit-icon">✎</div>
+                <div>
+                  <h4 class="form-card-title">Edit Doctor</h4>
+                  <p class="form-card-subtitle">{{ selectedDoctor.name }}</p>
+                </div>
+                <button class="btn-close-edit" (click)="clearSelection()" title="Close">×</button>
+              </div>
+
+              <div class="current-photo-row" *ngIf="selectedDoctor.image && !editImagePreview">
+                <img [src]="'http://localhost:8080' + selectedDoctor.image" class="current-photo" alt="Current">
+                <span class="current-photo-label">Current photo</span>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">{{ editImagePreview ? 'New Photo Preview' : 'Change Photo' }}</label>
+                <div class="upload-zone small" (click)="editPhotoInput.click()"
+                     (dragover)="$event.preventDefault(); editDropZone.classList.add('drag-over')"
+                     (dragleave)="editDropZone.classList.remove('drag-over')"
+                     (drop)="onEditDrop($event)" #editDropZone>
+                  <input type="file" accept="image/jpeg,image/png,image/webp"
+                         (change)="onEditFileSelected($event)" #editPhotoInput hidden>
+                  <div *ngIf="!editImagePreview" class="upload-placeholder small">
+                    <span class="upload-icon">📷</span>
+                    <p class="upload-text">Click or drag to change photo</p>
+                  </div>
+                  <div *ngIf="editImagePreview" class="upload-preview">
+                    <img [src]="editImagePreview" class="preview-img" alt="New preview">
+                    <div class="preview-info">
+                      <span class="preview-name">{{ editImageFile?.name }}</span>
+                      <button type="button" class="btn-remove"
+                              (click)="$event.stopPropagation(); removeEditPhoto()">Remove</button>
+                    </div>
+                  </div>
+                </div>
+                <small *ngIf="editImageError" class="field-error">{{ editImageError }}</small>
+              </div>
+
+              <div class="form-grid compact">
+                <div class="form-field">
+                  <label class="field-label">Full Name</label>
+                  <input [(ngModel)]="selectedDoctor.name" class="field-input">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Specialization</label>
+                  <input [(ngModel)]="selectedDoctor.specialization" class="field-input">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Experience</label>
+                  <input [(ngModel)]="selectedDoctor.experience" class="field-input">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Fee (₹)</label>
+                  <input [(ngModel)]="selectedDoctor.fee" class="field-input" type="number">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Clinic</label>
+                  <input [(ngModel)]="selectedDoctor.clinic" class="field-input">
+                </div>
+                <div class="form-field">
+                  <label class="field-label">Location</label>
+                  <input [(ngModel)]="selectedDoctor.location" class="field-input">
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="field-label">Availability</label>
+                <div class="toggle-group">
+                  <label class="toggle-switch">
+                    <input type="checkbox"
+                           [checked]="selectedDoctor.available == 1"
+                           (change)="onAvailabilityChange($any($event.target).checked)">
+                    <span class="toggle-track">
+                      <span class="toggle-thumb"></span>
+                    </span>
+                  </label>
+                  <span class="toggle-label"
+                        [class.available]="selectedDoctor.available == 1"
+                        [class.unavailable]="selectedDoctor.available != 1">
+                    {{ selectedDoctor.available == 1 ? 'Available for appointments' : 'Not available today' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button class="btn-secondary" (click)="clearSelection()">Cancel</button>
+                <button class="btn-primary" (click)="updateDoctor()">Save Changes</button>
+              </div>
+            </div>
+
+            <div class="form-card slots-card">
+              <div class="form-card-header">
+                <div class="form-card-icon slot-icon"></div>
+                <div>
+                  <h4 class="form-card-title">Time Slots Management</h4>
+                  <p class="form-card-subtitle" *ngIf="selectedDoctor.available == 1">
+                    Select a date and toggle slots, then click Upload or Update to commit changes.
+                  </p>
+                  <p class="form-card-subtitle unavail-msg" *ngIf="selectedDoctor.available != 1">
+                    ⚠ Doctor is unavailable — all slots are disabled
+                  </p>
+                </div>
+              </div>
+
+              <div class="form-field" style="margin-bottom: 20px; padding: 0 5px;">
+                <label class="field-label" style="font-weight: 600;">Select Date <span class="required">*</span></label>
+                <input type="date" [(ngModel)]="selectedDate" (change)="onDateChange()" class="field-input" style="max-width: 250px;">
+              </div>
+
+              <div class="slots-grid" [class.slots-disabled]="selectedDoctor.available != 1">
+                <div *ngFor="let s of ALL_SLOTS" class="slot-item"
+                     [class.slot-on]="isChecked(selectedDoctor.id, s) && selectedDoctor.available == 1"
+                     [class.slot-off]="!isChecked(selectedDoctor.id, s) || selectedDoctor.available != 1"
+                     [class.slot-pending]="pendingToggles.has(selectedDoctor.id + '_' + selectedDate + '_' + s)">
+
+                  <label class="slot-label">
+                    <input type="checkbox"
+                           [checked]="isChecked(selectedDoctor.id, s) && selectedDoctor.available == 1"
+                           [disabled]="pendingToggles.has(selectedDoctor.id + '_' + selectedDate + '_' + s) || selectedDoctor.available != 1"
+                           (change)="localToggleSlot(s, $event)"
+                           class="slot-checkbox">
+                    <span class="slot-time">{{ s }}</span>
+                    <span *ngIf="pendingToggles.has(selectedDoctor.id + '_' + selectedDate + '_' + s)"
+                          class="slot-spinner">⟳</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-actions" style="margin-top: 20px; padding: 0 5px;" *ngIf="selectedDoctor.available == 1">
+                <button class="btn-primary" [disabled]="!selectedDate" (click)="uploadOrUpdateSlots(selectedDoctor.id)">Upload or Update Slots</button>
+              </div>
+
+              <div *ngIf="selectedDoctor.available != 1" class="unavail-overlay">
+                <span>Mark doctor as available to manage slots</span>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer class="site-footer">
+  <span>© 2025 Hospital Management System</span>
+</footer>

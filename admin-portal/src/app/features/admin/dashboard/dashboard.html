@@ -1,37 +1,104 @@
 <app-navbar></app-navbar>
 
-<div class="d-flex">
-
-  <!-- Sidebar -->
+<div class="page-layout">
   <app-sidebar></app-sidebar>
 
-  <!-- Main Content -->
-  <div class="p-4 w-100">
+  <div class="page-content">
 
-    <h3 class="mb-4">Admin Dashboard</h3>
-     
-  <div class="row mb-4">
+    <!-- Header -->
+    <div class="dash-header">
+      <div>
+        <h2 class="page-title">Admin Dashboard</h2>
+        <p class="page-subtitle">Hospital overview and statistics</p>
+      </div>
 
-  <div class="col-md-4">
-    <div class="card shadow-lg p-4 text-center border-0 rounded-4 bg-primary text-white">
-      <h6>Total Doctors</h6>
-      <h1>{{ stats?.doctors }}</h1>
+      <!-- Change 4: Date picker to filter stats -->
+      <div class="date-picker-wrap">
+        <label class="date-label">📅 View stats for:</label>
+        <input type="date" class="date-input"
+               [(ngModel)]="selectedDate"
+               (change)="onDateChange()">
+      </div>
     </div>
-  </div>
 
-  <div class="col-md-4">
-    <div class="card shadow-lg p-4 text-center border-0 rounded-4 bg-success text-white">
-      <h6>Total Appointments</h6>
-      <h1>{{ stats?.appointments }}</h1>
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+
+      <!-- Change 5: Available Doctors for selected day -->
+      <div class="stat-card blue">
+        <div class="stat-icon">👨‍⚕️</div>
+        <div class="stat-body">
+          <div class="stat-value">{{ loading ? '…' : stats.doctors }}</div>
+          <div class="stat-label">Available Doctors</div>
+          <div class="stat-sub">Doctors marked available today</div>
+        </div>
+      </div>
+
+      <!-- Total Appointments (all time) -->
+      <div class="stat-card green">
+        <div class="stat-icon">📋</div>
+        <div class="stat-body">
+          <div class="stat-value">{{ loading ? '…' : stats.appointments }}</div>
+          <div class="stat-label">Total Appointments</div>
+          <div class="stat-sub">All time bookings</div>
+        </div>
+      </div>
+
+      <!-- Change 4: Appointments for selected date -->
+      <div class="stat-card orange">
+        <div class="stat-icon">🗓</div>
+        <div class="stat-body">
+          <div class="stat-value">{{ loading ? '…' : stats.today }}</div>
+          <div class="stat-label">Appointments on Date</div>
+          <div class="stat-sub">{{ selectedDate | date:'MMM d, y' }}</div>
+        </div>
+      </div>
+
     </div>
-  </div>
 
-  <div class="col-md-4">
-    <div class="card shadow-lg p-4 text-center border-0 rounded-4 bg-warning text-white">
-      <h6>Today's Appointments</h6>
-      <h1>{{ stats?.today }}</h1>
+    <!-- Recent Appointments -->
+    <div class="section-card">
+      <div class="section-header">
+        <h4 class="section-title">Recent Appointments</h4>
+        <a routerLink="/appointments" class="section-link">View all →</a>
+      </div>
+
+      <div class="table-wrap">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Patient</th>
+              <th>Doctor</th>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of recentAppointments; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td class="fw-name">{{ a.patient_name }}</td>
+              <td class="fw-doc">{{ a.doctor_name }}</td>
+              <td>{{ a.date | date:'MMM d, y' }}</td>
+              <td>{{ a.time }}</td>
+              <td>
+                <span class="status-badge" [class.booked]="a.status === 'booked'" [class.cancelled]="a.status === 'cancelled'">
+                  {{ a.status }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="recentAppointments.length === 0">
+              <td colspan="6" class="empty-row">No appointments found</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
 
+  </div>
 </div>
-    
+
+<footer class="site-footer">
+  <span>© 2025 Hospital Management System</span>
+</footer>

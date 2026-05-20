@@ -4,6 +4,7 @@ const appointmentController = require("../controllers/appointment.controller");
 
 router.post("/book", appointmentController.bookAppointment);
 router.get("/appointments/:mobile", appointmentController.getAppointments);
+router.put("/appointments/:id/cancel", appointmentController.cancelAppointment);
 router.put("/appointments/:id", appointmentController.cancelAppointment);
 router.get("/slots", appointmentController.getSlots);
 router.delete("/appointments/:id", appointmentController.deleteAppointment);

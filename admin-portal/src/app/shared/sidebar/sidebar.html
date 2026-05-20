@@ -1,33 +1,31 @@
-<div class="bg-dark text-white vh-100 p-3" style="width: 220px;">
-
- 
-
-  <ul class="nav flex-column">
-
-    <li class="nav-item mb-2">
-      <a routerLink="/admin" class="nav-link text-white">
-         Dashboard
+<mat-sidenav-container class="layout">
+  <mat-sidenav mode="side" opened class="sidebar">
+    <mat-nav-list class="nav-list">
+      <a mat-list-item 
+         routerLink="/admin" 
+         routerLinkActive="active" 
+         [routerLinkActiveOptions]="{exact:true}">
+        <mat-icon>dashboard</mat-icon>
+        <span class="link-text">Dashboard</span>
       </a>
-    </li>
 
-    <li class="nav-item mb-2">
-      <a routerLink="/admin/doctors" class="nav-link text-white">
-         Doctors
+      <a mat-list-item 
+         routerLink="/admin/doctors" 
+         routerLinkActive="active">
+        <mat-icon>medical_services</mat-icon>
+        <span class="link-text">Doctors</span>
       </a>
-    </li>
 
-     <li class="nav-item mb-2">
-     <a routerLink="/admin/edit-doctor" class="nav-link text-white">
-  Edit Doctors
-</a>
-    </li>
-
-    <li class="nav-item mb-2">
-      <a routerLink="/appointments" class="nav-link text-white">
-         Appointments
+      <a mat-list-item 
+         routerLink="/appointments" 
+         routerLinkActive="active">
+        <mat-icon>calendar_today</mat-icon>
+        <span class="link-text">Appointments</span>
       </a>
-    </li>
+    </mat-nav-list>
+  </mat-sidenav>
 
-  </ul>
-
-</div>
+  <mat-sidenav-content class="content">
+    <router-outlet></router-outlet>
+  </mat-sidenav-content>
+</mat-sidenav-container>

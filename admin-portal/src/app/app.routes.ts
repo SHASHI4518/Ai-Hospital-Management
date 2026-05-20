@@ -12,5 +12,5 @@ export const routes: Routes = [
   { path: 'admin', component: DashboardComponent },
   { path: 'appointments', component: AppointmentsComponent },
   { path: 'admin/doctors', component: DoctorsComponent },
-  { path: 'admin/edit-doctor', component: EditDoctorComponent }
+  { path: 'admin/edit-doctor', redirectTo: 'admin/doctors', pathMatch: 'full' }
 ];

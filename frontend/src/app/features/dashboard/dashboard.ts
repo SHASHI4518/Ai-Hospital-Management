@@ -1,36 +1,55 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DoctorService } from 'src/app/core/services/doctor.service';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
+import { DoctorService } from 'src/app/core/services/doctor.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: './dashboard.html'
+  templateUrl: './dashboard.html',
+  styleUrls: ['./dashboard.css']
 })
 export class DashboardComponent implements OnInit {
-
   selectedDoctorId: number | null = null;
-
   doctors: any[] = [];
   appointments: any[] = [];
-
   selectedDate = '';
   selectedTime = '';
-  today: string = new Date().toISOString().split('T')[0]; 
+  today: string = new Date().toISOString().split('T')[0];
 
   slots: string[] = [
-    "09:00","10:00","11:00","12:00",
-    "13:00","14:00","15:00","16:00",
-    "17:00","18:00","19:00","20:00","21:00"
+    "09:00", "10:00", "11:00", "12:00",
+    "13:00", "14:00", "15:00", "16:00",
+    "17:00", "18:00", "19:00", "20:00", "21:00"
   ];
 
- 
-  doctorSlots: { [doctorId: number]: { [time: string]: number } } = {};
+  doctorSlots: { [slotKey: string]: { [time: string]: number } } = {};
+
+  specializationsInfo = [
+    { name: 'Gynecologist', desc: 'Women health, pregnancy, and reproductive care.', icon: '🩺' },
+    { name: 'Cardiologist', desc: 'Heart health, cardiovascular diseases, and hypertension.', icon: '❤️' },
+    { name: 'Dermatologist', desc: 'Skin conditions, acne, allergies, and hair disorders.', icon: '✨' },
+    { name: 'Pediatrician', desc: 'Medical care for infants, children, and adolescents.', icon: '👶' },
+    { name: 'Orthopedic Doctor', desc: 'Bone, joint, ligament, and muscle treatment.', icon: '🦴' },
+    { name: 'Neurologist', desc: 'Brain, spinal cord, and nervous system disorders.', icon: '🧠' },
+    { name: 'Psychiatrist', desc: 'Mental health, emotional wellness, and therapy.', icon: '💭' },
+    { name: 'Ophthalmologist', desc: 'Eye examinations, vision care, and surgeries.', icon: '👁️' },
+    { name: 'ENT Specialist', desc: 'Ear, nose, throat, and head-neck conditions.', icon: '👂' },
+    { name: 'General Physician', desc: 'Primary care, family medicine, and routine checkups.', icon: '🏥' },
+    { name: 'Dentist', desc: 'Oral hygiene, dental fillings, and teeth alignment.', icon: '🦷' },
+    { name: 'Urologist', desc: 'Urinary tract and male reproductive system care.', icon: '💧' },
+    { name: 'Oncologist', desc: 'Cancer diagnosis, treatment, and chemotherapy.', icon: '🎗️' },
+    { name: 'Radiologist', desc: 'X-rays, MRIs, CT scans, and medical imaging.', icon: '🩻' },
+    { name: 'Pulmonologist', desc: 'Respiratory tracking, lungs, and asthma care.', icon: '🫁' },
+    { name: 'Endocrinologist', desc: 'Hormone imbalances, thyroid, and diabetes management.', icon: '🩸' },
+    { name: 'Gastroenterologist', desc: 'Digestive system, stomach, and liver health.', icon: '🍏' },
+    { name: 'Nephrologist', desc: 'Kidney functions, treatments, and dialysis management.', icon: '💧' },
+    { name: 'Surgeon', desc: 'Operative treatments and complex physical interventions.', icon: '✂️' },
+    { name: 'Physiotherapist', desc: 'Physical rehabilitation, posture, and movement recovery.', icon: '🏃' }
+  ];
 
   constructor(
     private doctorService: DoctorService,
@@ -44,52 +63,52 @@ export class DashboardComponent implements OnInit {
     this.loadAppointments();
   }
 
-  // LOAD DOCTORS
   loadDoctors() {
     this.doctorService.getDoctors().subscribe((res: any) => {
       this.doctors = res;
-     
     });
   }
 
-  loadSlots(doctorId: number) {
-    this.http.get<any[]>(`http://localhost:8080/slots/${doctorId}`)
+  loadSlots(doctorId: number, date: string) {
+    if (!date) return;
+    this.http.get<any[]>(`http://localhost:8080/slots/${doctorId}?date=${date}`)
       .subscribe({
         next: (res) => {
           const map: { [time: string]: number } = {};
           res.forEach((s: any) => {
             map[s.time] = Number(s.available);
           });
-          this.doctorSlots[doctorId] = map;
+          const slotKey = `${doctorId}_${date}`;
+          this.doctorSlots[slotKey] = map;
           this.cd.detectChanges();
         },
         error: () => {
-          console.error(`Failed to load slots for doctor ${doctorId}`);
+          console.error(`Failed to load slots for doctor ${doctorId} on date ${date}`);
         }
       });
   }
 
-
   onDoctorChange() {
     this.selectedTime = '';
     this.selectedDate = '';
-    if (this.selectedDoctorId) {
-      this.loadSlots(this.selectedDoctorId);
+  }
+
+  onDateChange(doctorId: number) {
+    this.selectedTime = '';
+    if (this.selectedDate) {
+      this.loadSlots(doctorId, this.selectedDate);
     }
   }
 
-  
   isSlotDisabled(docId: number, time: string): boolean {
-    const map = this.doctorSlots[docId];
-
+    if (!this.selectedDate) return true;
+    const slotKey = `${docId}_${this.selectedDate}`;
+    const map = this.doctorSlots[slotKey];
     if (!map) return true;
-
     if (map[time] === undefined) return true;
-
     return map[time] === 0;
   }
 
-  // LOAD APPOINTMENTS
   loadAppointments() {
     const mobile = localStorage.getItem("user");
     if (!mobile) return;
@@ -106,7 +125,6 @@ export class DashboardComponent implements OnInit {
       });
   }
 
-  // BOOK
   book(doctorId: number) {
     if (!this.selectedDate || !this.selectedTime) {
       alert("Please select date and time slot");
@@ -125,7 +143,7 @@ export class DashboardComponent implements OnInit {
         next: (res) => {
           alert(res);
           this.loadAppointments();
-          this.loadSlots(doctorId); 
+          this.loadSlots(doctorId, this.selectedDate);
           this.selectedDate = '';
           this.selectedTime = '';
         },
@@ -135,7 +153,6 @@ export class DashboardComponent implements OnInit {
       });
   }
 
-  // CANCEL
   cancel(id: number) {
     this.http.delete(`http://localhost:8080/appointments/${id}`, { responseType: 'text' })
       .subscribe({
@@ -149,7 +166,6 @@ export class DashboardComponent implements OnInit {
       });
   }
 
-  // HELPERS
   getDoctorName(id: number) {
     const doc = this.doctors.find(d => d.id === id);
     return doc ? doc.name : 'Unknown';
@@ -162,5 +178,10 @@ export class DashboardComponent implements OnInit {
 
   trackById(index: number, item: any) {
     return item.id;
+  }
+
+  formatDateOnly(dateString: string): string {
+    if (!dateString) return '';
+    return dateString.split('T')[0];
   }
 }

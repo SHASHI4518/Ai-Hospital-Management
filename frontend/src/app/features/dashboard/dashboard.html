@@ -1,118 +1,169 @@
-<div class="container mt-5">
-
-  <!-- HEADER -->
-  <h2 class="text-center mb-2 fw-bold">Find Your Doctor</h2>
-
-  <!-- DROPDOWN -->
-  <div class="card shadow-sm p-3 mb-4 border-0 rounded-4">
-    <label class="mb-2 fw-semibold">Select Doctor</label>
-
-    <select class="form-control form-select form-select-lg"
-            [(ngModel)]="selectedDoctorId"
-            (change)="onDoctorChange()">
-
-      <option [ngValue]="null"> Select Doctor</option>
-
-      <option *ngFor="let doc of doctors" [ngValue]="doc.id">
-        {{ doc.name }} - {{ doc.specialization }}
-      </option>
-
-    </select>
-  </div>
-
-  <!-- DOCTOR CARD -->
-
-  <ng-container *ngIf="selectedDoctorId">
-
-    <ng-container *ngFor="let doc of doctors">
-
-      <div *ngIf="doc.id === selectedDoctorId" class="container mt-4">
-        <div class="row justify-content-center">
-          <div class="col-md-6">
-
-            <div class="card shadow p-4">
-
-              <!-- FLEX -->
-              <div class="d-flex align-items-center">
-
-                <img [src]="'http://localhost:8080' + doc.image"
-                     class="rounded-circle me-4"
-                     width="100"
-                     height="100"
-                     style="object-fit: cover;"
-                     [alt]="doc.name">
-
-                <div>
-                  <h4 class="text-primary mb-1">{{ doc.name }}</h4>
-                  <p class="fw-bold mb-1">{{ doc.specialization }}</p>
-                  <p class="mb-1">Experience: {{ doc.experience }} yrs</p>
-                  <p class="mb-1">Clinic: {{ doc.clinic }}</p>
-                  <p class="mb-1">Location: {{ doc.location }}</p>
-
-                  <p [ngClass]="doc.available === 1 ? 'text-success' : 'text-danger'">
-                    {{ doc.available === 1 ? 'Available Today' : 'Not Available' }}
-                  </p>
-
-                  <p class="text-success fw-bold mt-2">₹{{ doc.fee }}</p>
-                </div>
-
-              </div>
-
-              <hr>
-
-              <!-- DATE -->
-              <input type="date"
-                     [(ngModel)]="selectedDate"
-                     (change)="selectedTime=''; loadSlots(doc.id)"
-                     class="form-control mb-3"
-                     [min]="today">
-
-              <!-- SLOT BUTTONS -->
-              <div class="mb-3">
-
-                <label class="fw-semibold mb-2">Select Time Slot</label>
-
-                <div *ngIf="!doctorSlots[doc.id]" class="text-muted fst-italic">
-                  Loading slots...
-                </div>
-
-                <div *ngIf="doctorSlots[doc.id]" class="d-flex flex-wrap gap-2">
-
-                  <button *ngFor="let s of slots"
-                          class="btn"
-                          [ngClass]="{
-                            'btn-success':   !isSlotDisabled(doc.id, s) && selectedTime !== s,
-                            'btn-secondary':  isSlotDisabled(doc.id, s),
-                            'btn-primary':    selectedTime === s && !isSlotDisabled(doc.id, s)
-                          }"
-                          [disabled]="isSlotDisabled(doc.id, s)"
-                          (click)="selectedTime = s">
-
-                    {{ s }}
-
-                  </button>
-
-                </div>
-
-              </div>
-
-              <!-- BOOK BUTTON -->
-              <button class="btn btn-success w-100 fw-bold py-2"
-                      [disabled]="!selectedDate || !selectedTime || doc.available !== 1"
-                      (click)="book(doc.id)">
-
-                Book Appointment
-
-              </button>
-
-            </div>
-
+<main class="container-fluid py-5 page-layout">
+  <div class="row px-lg-4">
+    
+    <div class="col-xl-4 col-lg-5 mb-4 mb-lg-0" *ngIf="!selectedDoctorId">
+      <div class="sticky-sidebar card border-0 shadow-sm p-4 rounded-4 bg-white">
+        <h3 class="fw-bold text-dark mb-3">Book an Appointment</h3>
+        <p class="text-secondary small mb-4">Choose a specialized health provider from our registry to reserve your real-time consultation slot.</p>
+        
+        <div class="form-group mb-4">
+          <label class="form-label fw-bold small text-uppercase text-muted tracking-wider">Select Doctor</label>
+          <div class="select-wrapper position-relative">
+            <select class="form-select form-select-lg py-3 border-2 custom-select-input" [(ngModel)]="selectedDoctorId" (change)="onDoctorChange()">
+              <option [ngValue]="null">Choose medical provider...</option>
+              <option *ngFor="let doc of doctors" [ngValue]="doc.id">
+                {{ doc.name }} — {{ doc.specialization }}
+              </option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="appointment-steps p-3 rounded-3 bg-light">
+          <div class="step d-flex gap-3 mb-3">
+            <div class="step-num bg-primary text-white rounded-circle d-flex align-items-center justify-content-center">1</div>
+            <div><p class="mb-0 fw-semibold text-dark">Select Specialist</p><small class="text-muted">Choose your practicing doctor</small></div>
+          </div>
+          <div class="step d-flex gap-3 mb-3">
+            <div class="step-num bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center">2</div>
+            <div><p class="mb-0 fw-semibold text-dark">Pick Date & Time</p><small class="text-muted">Find matching schedule availability</small></div>
+          </div>
+          <div class="step d-flex gap-0">
+            <div class="step-num bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center">3</div>
+            <div class="ms-3"><p class="mb-0 fw-semibold text-dark">Confirm Booking</p><small class="text-muted">Secure your appointment instant</small></div>
           </div>
         </div>
       </div>
+    </div>
 
-    </ng-container>
+    <div class="col-12" *ngIf="selectedDoctorId">
+      <button class="btn btn-link text-decoration-none text-primary fw-semibold p-0 mb-4 d-inline-flex align-items-center gap-2 back-btn" (click)="selectedDoctorId = null">
+        ← Back to Specializations
+      </button>
+      
+      <ng-container *ngFor="let doc of doctors; trackBy: trackById">
+        <div class="row" *ngIf="doc.id === selectedDoctorId">
+          <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow p-4 rounded-4 bg-white h-100 position-relative overflow-hidden">
+              <div class="status-badge-absolute" [ngClass]="doc.available === 1 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
+                ● {{ doc.available === 1 ? 'Available Today' : 'Not Available' }}
+              </div>
+              
+              <div class="d-flex align-items-start gap-4 mt-3">
+                <img [src]="'http://localhost:8080' + doc.image" class="rounded-circle border border-4 border-light shadow-sm" width="110" height="110" style="object-fit: cover;" [alt]="doc.name">
+                <div class="flex-grow-1">
+                  <h2 class="fw-bold text-dark mb-1">{{ doc.name }}</h2>
+                  <span class="badge bg-primary-subtle text-primary mb-3 px-3 py-2 rounded-pill fw-semibold">{{ doc.specialization }}</span>
+                  
+                  <div class="doctor-meta-grid">
+                    <div class="meta-item"><span class="meta-icon">💼</span> <strong>Experience:</strong> {{ doc.experience }} Years</div>
+                    <div class="meta-item"><span class="meta-icon">🏢</span> <strong>Clinic:</strong> {{ doc.clinic }}</div>
+                    <div class="meta-item"><span class="meta-icon">📍</span> <strong>Location:</strong> {{ doc.location }}</div>
+                  </div>
+                  
+                  <div class="fee-display mt-3 p-3 rounded-3 bg-light d-flex justify-content-between align-items-center">
+                    <span class="text-secondary fw-semibold">Consultation Fee</span>
+                    <span class="fs-3 fw-bold text-success">₹{{ doc.fee }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-  </ng-container>
+          <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow p-4 rounded-4 bg-white h-100">
+              <h3 class="fw-bold text-dark mb-3">Schedule Appointment</h3>
+              
+              <div class="mb-4">
+                <label class="form-label fw-bold small text-muted text-uppercase">1. Choose Date</label>
+                <input type="date" [(ngModel)]="selectedDate" (change)="onDateChange(doc.id)" class="form-control form-control-lg border-2 py-3 shadow-none custom-date-input" [min]="today">
+              </div>
 
-</div>
+              <div class="mb-4">
+                <label class="form-label fw-bold small text-muted text-uppercase d-block mb-3">2. Choose Time Slot</label>
+                
+                <div *ngIf="!selectedDate || !doctorSlots[doc.id + '_' + selectedDate]" class="text-muted fst-italic p-3 rounded bg-light border text-center">
+                  Select a date to fetch available appointment windows.
+                </div>
+
+                <div *ngIf="selectedDate && doctorSlots[doc.id + '_' + selectedDate]" class="time-slots-container">
+                  <button *ngFor="let s of slots" class="btn slot-pill-btn" [ngClass]="{
+                              'slot-available': !isSlotDisabled(doc.id, s) && selectedTime !== s,
+                              'slot-disabled': isSlotDisabled(doc.id, s),
+                              'slot-selected': selectedTime === s && !isSlotDisabled(doc.id, s)
+                            }" [disabled]="isSlotDisabled(doc.id, s)" (click)="selectedTime = s">
+                    {{ s }}
+                  </button>
+                </div>
+              </div>
+
+              <button class="btn btn-success w-100 fw-bold py-3 text-uppercase tracking-wider shadow border-0 confirm-booking-btn" [disabled]="!selectedDate || !selectedTime || doc.available !== 1" (click)="book(doc.id)">
+                Confirm and Secure Slot
+              </button>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <div class="col-xl-8 col-lg-7" *ngIf="!selectedDoctorId">
+      <div class="mb-4">
+        <h3 class="fw-bold text-dark mb-1">Medical Specialties</h3>
+        <p class="text-muted small">Explore our dedicated departments covering specialized clinical therapeutic care fields</p>
+      </div>
+      
+      <div class="row g-3">
+        <div class="col-md-6 col-xl-4" *ngFor="let info of specializationsInfo">
+          <div class="card h-100 border-0 shadow-sm p-4 specialty-card transition-all rounded-4 bg-white">
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="specialty-icon-wrapper rounded-3 bg-light fs-3 d-flex align-items-center justify-content-center">
+                {{ info.icon }}
+              </div>
+              <h5 class="fw-bold text-dark m-0">{{ info.name }}</h5>
+            </div>
+            <p class="text-secondary small mb-0 lh-base">{{ info.desc }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="row mt-5 px-lg-4" *ngIf="appointments.length > 0">
+    <div class="col-12">
+      <div class="card border-0 shadow-sm p-4 rounded-4 bg-white">
+        <h3 class="fw-bold text-dark mb-4">Your Active Appointments</h3>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle custom-appointments-table">
+            <thead>
+              <tr>
+                <th>Doctor</th>
+                <th>Appointment Date</th>
+                <th>Time Window</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let app of appointments">
+                <td class="fw-bold text-dark">{{ getDoctorName(app.doctor_id) }}</td>
+                <td><span class="badge bg-light text-dark border px-3 py-2 font-monospace">{{ formatDateOnly(app.date) }}</span></td>
+                <td><span class="badge bg-primary-subtle text-primary px-3 py-2 font-monospace">{{ app.time }}</span></td>
+                <td><span class="badge bg-warning-subtle text-warning px-3 py-2 font-monospace">{{app.status}}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="app-compact-footer border-top bg-white text-center py-3 text-secondary small">
+  <div class="container-fluid d-flex flex-column flex-sm-row justify-content-between align-items-center px-4 gap-2">
+    <span>&copy; 2026 HospitalApp. All rights reserved.</span>
+    <div class="d-flex gap-3 footer-links">
+      <a href="#" class="text-decoration-none text-muted">Terms</a>
+      <a href="#" class="text-decoration-none text-muted">Privacy Policy</a>
+      <a href="#" class="text-decoration-none text-muted">Support</a>
+    </div>
+  </div>
+</footer>
