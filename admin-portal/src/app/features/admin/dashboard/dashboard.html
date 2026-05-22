@@ -7,14 +7,11 @@
 
     <!-- Header -->
     <div class="dash-header">
-      <div>
-        <h2 class="page-title">Admin Dashboard</h2>
-        <p class="page-subtitle">Hospital overview and statistics</p>
-      </div>
+     
 
       <!-- Change 4: Date picker to filter stats -->
       <div class="date-picker-wrap">
-        <label class="date-label">📅 View stats for:</label>
+        <label class="date-label"> View stats for:</label>
         <input type="date" class="date-input"
                [(ngModel)]="selectedDate"
                (change)="onDateChange()">
@@ -26,7 +23,7 @@
 
       <!-- Change 5: Available Doctors for selected day -->
       <div class="stat-card blue">
-        <div class="stat-icon">👨‍⚕️</div>
+        
         <div class="stat-body">
           <div class="stat-value">{{ loading ? '…' : stats.doctors }}</div>
           <div class="stat-label">Available Doctors</div>
@@ -36,7 +33,7 @@
 
       <!-- Total Appointments (all time) -->
       <div class="stat-card green">
-        <div class="stat-icon">📋</div>
+      
         <div class="stat-body">
           <div class="stat-value">{{ loading ? '…' : stats.appointments }}</div>
           <div class="stat-label">Total Appointments</div>
@@ -46,7 +43,7 @@
 
       <!-- Change 4: Appointments for selected date -->
       <div class="stat-card orange">
-        <div class="stat-icon">🗓</div>
+       
         <div class="stat-body">
           <div class="stat-value">{{ loading ? '…' : stats.today }}</div>
           <div class="stat-label">Appointments on Date</div>
@@ -60,7 +57,7 @@
     <div class="section-card">
       <div class="section-header">
         <h4 class="section-title">Recent Appointments</h4>
-        <a routerLink="/appointments" class="section-link">View all →</a>
+        
       </div>
 
       <div class="table-wrap">

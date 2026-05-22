@@ -4,11 +4,12 @@ import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { NavbarComponent } from '../../../shared/navbar/navbar';
 import { SidebarComponent } from '../../../shared/sidebar/sidebar';
-
+import { Router } from '@angular/router';
+import{RouterModule} from '@angular/router';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [FormsModule, CommonModule, NavbarComponent, SidebarComponent],
+  imports: [FormsModule, CommonModule, NavbarComponent, SidebarComponent, ],
   templateUrl: './dashboard.html',
   styleUrls: ['./dashboard.css']
 })
@@ -18,9 +19,9 @@ export class DashboardComponent implements OnInit {
   selectedDate: string = '';
 
   stats = {
-    doctors: 0,       // Change 5: available doctors only
+    doctors: 0,       
     appointments: 0,
-    today: 0,         // appointments for selectedDate
+    today: 0,         
     selectedDate: ''
   };
 

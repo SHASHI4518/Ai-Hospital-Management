@@ -1,73 +1,121 @@
+<div class="page-wrapper">
+  <div class="appointments-page">
 
-<div class="container mt-4">
-
-  <h2 class="text-center mb-4">My Appointments</h2>
-
-  <div class="row">
-    <div class="col-md-6 mb-3"
-         *ngFor="let a of appointments; trackBy: trackById">
-
-      <div class="card shadow p-3">
-     <button *ngIf="a.status === 'cancelled'"
-        class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 rounded-circle"
-        (click)="deleteHistory(a.id)">
-  ❌
-</button>
-          <!-- GET DOCTOR -->
-        <ng-container *ngIf="getDoctor(a.doctor_id) as doc">
-
-          <div class="d-flex align-items-center">
-
-            <!-- IMAGE -->
-          <img [src]="'http://localhost:8080' + doc.image"
-                 class="rounded-circle me-3"
-                 width="80"
-                 height="80"
-                 style="object-fit: cover;">
-
-            <!-- DETAILS -->
-            <div>
-              <h5 class="text-primary mb-1">{{ doc.name }}</h5>
-              <p class="mb-1 fw-bold">{{ doc.specialization }}</p>
-              <p class="mb-1">Clinic: {{ doc.clinic }}</p>
-              <p class="mb-1">Location: {{ doc.location }}</p>
-              <p class="text-success fw-bold mb-0">₹{{ doc.fee }}</p>
-            </div>
-
-          </div>
-
-        </ng-container>
-
-        <hr>
-
-        <!-- APPOINTMENT DETAILS -->
-        <p><b>Date:</b> {{ a.date | date:'yyyy-MM-dd' }}</p>
-        <p><b>Time:</b> {{ a.time }}</p>
-
-        <p>
-          <b>Status:</b>
-          <span [ngClass]="{
-            'text-success': a.status === 'booked',
-            'text-danger': a.status === 'cancelled'
-          }">
-            {{ a.status }}
-          </span>
-        </p>
-
-        <!-- CANCEL -->
-        <button class="btn btn-danger w-100"
-                (click)="cancel(a.id)">
-          Cancel
-        </button>
-
-      </div>
-
+    <div *ngIf="loading" class="loading-state">
+      <mat-spinner diameter="48" color="primary"></mat-spinner>
+      <p>Loading your appointments…</p>
     </div>
 
+    <div *ngIf="!loading && appointments.length === 0" class="empty-state">
+      <mat-icon class="empty-icon">calendar_today</mat-icon>
+      <h3>No Appointments Found</h3>
+      <p>You haven't booked any appointments yet.</p>
+    </div>
+
+    <div class="cards-grid" *ngIf="!loading && appointments.length > 0">
+
+      <mat-card
+        class="appointment-card"
+        *ngFor="let a of appointments; trackBy: trackById"
+        [class.card-cancelled]="a.status === 'cancelled'"
+        [class.card-booked]="a.status === 'booked'">
+
+        <div class="status-ribbon" [class.ribbon-booked]="a.status === 'booked'" [class.ribbon-cancelled]="a.status === 'cancelled'">
+          <mat-icon>{{ a.status === 'booked' ? 'verified' : 'block' }}</mat-icon>
+          {{ a.status | titlecase }}
+        </div>
+
+        <button
+          *ngIf="a.status === 'cancelled'"
+          mat-icon-button
+          class="delete-btn"
+          matTooltip="Remove from history"
+          (click)="deleteHistory(a.id)">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+
+        <mat-card-content class="card-body">
+          <ng-container *ngIf="getDoctor(a.doctor_id) as doc">
+
+            <div class="doctor-profile">
+              <div class="avatar-wrapper">
+                <img
+                  [src]="'http://localhost:8080' + doc.image"
+                  class="doctor-avatar"
+                  [alt]="doc.name">
+                <div class="avatar-ring"></div>
+              </div>
+              <div class="doctor-info">
+                <h3 class="doctor-name">{{ doc.name }}</h3>
+                <mat-chip-set>
+                  <mat-chip class="spec-chip">
+                    <mat-icon matChipAvatar>medical_services</mat-icon>
+                    {{ doc.specialization }}
+                  </mat-chip>
+                </mat-chip-set>
+              </div>
+            </div>
+
+            <div class="clinic-details">
+              <div class="detail-row">
+                <mat-icon class="detail-icon">local_hospital</mat-icon>
+                <span>{{ doc.clinic }}</span>
+              </div>
+              <div class="detail-row">
+                <mat-icon class="detail-icon">location_on</mat-icon>
+                <span>{{ doc.location }}</span>
+              </div>
+              <div class="detail-row fee-row">
+                <mat-icon class="detail-icon">currency_rupee</mat-icon>
+                <span class="fee-amount">{{ doc.fee }}</span>
+                <span class="fee-label">Consultation Fee</span>
+              </div>
+            </div>
+
+          </ng-container>
+
+          <mat-divider class="card-divider"></mat-divider>
+
+          <div class="appt-details">
+            <div class="appt-detail-item">
+              <div class="appt-detail-label">
+                <mat-icon>calendar_month</mat-icon>
+                Date
+              </div>
+              <div class="appt-detail-value">{{ a.date | date:'EEE, dd MMM yyyy' }}</div>
+            </div>
+            <div class="appt-detail-item">
+              <div class="appt-detail-label">
+                <mat-icon>schedule</mat-icon>
+                Time
+              </div>
+              <div class="appt-detail-value">{{ a.time }}</div>
+            </div>
+          </div>
+
+        </mat-card-content>
+
+        <mat-card-actions class="card-actions">
+          <button
+            mat-stroked-button
+            class="cancel-btn"
+            *ngIf="a.status === 'booked'"
+            (click)="cancel(a.id)">
+            <mat-icon>event_busy</mat-icon>
+            Cancel Appointment
+          </button>
+          <div *ngIf="a.status === 'cancelled'" class="cancelled-note">
+            <mat-icon>info_outline</mat-icon>
+            This appointment was cancelled
+          </div>
+        </mat-card-actions>
+
+      </mat-card>
+
+    </div>
   </div>
 
+  <footer class="site-footer">
+    <span>© 2025 Hospital Management System</span>
+  </footer>
 </div>
-
-<footer class="site-footer">
-  <span>© 2025 Hospital Management System</span>
-</footer>

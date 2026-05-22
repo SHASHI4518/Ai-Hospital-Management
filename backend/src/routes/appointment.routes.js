@@ -1,12 +1,18 @@
 const express = require("express");
 const router = express.Router();
-const appointmentController = require("../controllers/appointment.controller");
+const ac = require("../controllers/appointment.controller");
 
-router.post("/book", appointmentController.bookAppointment);
-router.get("/appointments/:mobile", appointmentController.getAppointments);
-router.put("/appointments/:id/cancel", appointmentController.cancelAppointment);
-router.put("/appointments/:id", appointmentController.cancelAppointment);
-router.get("/slots", appointmentController.getSlots);
-router.delete("/appointments/:id", appointmentController.deleteAppointment);
-router.get('/admin/appointments', appointmentController.getAllAppointments);
+router.post("/book", ac.bookAppointment);
+router.get("/appointments/:mobile", ac.getAppointments);
+
+// Cancel = status update (PUT) — does NOT delete
+router.put("/appointments/:id/cancel", ac.cancelAppointment);
+router.put("/appointments/:id", ac.cancelAppointment);
+
+// Hard delete
+router.delete("/appointments/:id", ac.deleteAppointment);
+
+// Admin: all appointments
+router.get('/admin/appointments', ac.getAllAppointments);
+
 module.exports = router;

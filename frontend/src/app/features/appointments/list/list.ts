@@ -3,17 +3,38 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Router, NavigationEnd } from '@angular/router';
 
+// Angular Material Imports
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDividerModule } from '@angular/material/divider';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
+const API = 'http://localhost:8080';
+
 @Component({
   selector: 'app-appointment-list',
   standalone: true,
-  imports: [CommonModule],
-  templateUrl: './list.html'
+  imports: [
+    CommonModule,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatChipsModule,
+    MatDividerModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+  ],
+  templateUrl: './list.html',
+  styleUrls: ['./list.css']
 })
 export class AppointmentListComponent implements OnInit {
 
   appointments: any[] = [];
   doctors: any[] = [];
-  loading: boolean = false;
+  loading = false;
 
   constructor(
     private http: HttpClient,
@@ -22,85 +43,73 @@ export class AppointmentListComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-
-    // Load immediately
     this.loadAppointments();
     this.loadDoctors();
-
-    // Reload when navigating back
     this.router.events.subscribe(event => {
-      if (event instanceof NavigationEnd) {
-        this.loadAppointments();
+      if (event instanceof NavigationEnd) this.loadAppointments();
+    });
+  }
+
+  loadAppointments() {
+    this.loading = true;
+    const mobile = localStorage.getItem('user');
+    this.http.get<any[]>(`${API}/appointments/${mobile}`).subscribe({
+      next: (res) => {
+        this.appointments = [...res];
+        this.loading = false;
+        this.cd.detectChanges();
+      },
+      error: () => { this.loading = false; }
+    });
+  }
+
+  loadDoctors() {
+    this.http.get<any[]>(`${API}/doctors`).subscribe({
+      next: (res) => {
+        this.doctors = [...res];
+        this.cd.detectChanges();
       }
     });
   }
 
-  // Load appointments
-  loadAppointments() {
-    this.loading = true;
-
-    const mobile = localStorage.getItem("user");
-
-    this.http.get(`http://localhost:8080/appointments/${mobile}`)
-      .subscribe((res: any) => {
-        this.appointments = [...res];
-        this.loading = false;
-        this.cd.detectChanges();
-      });
-  }
-
-  // Load doctors
-  loadDoctors() {
-    this.http.get("http://localhost:8080/doctors")
-      .subscribe((res: any) => {
-        this.doctors = [...res];
-        this.cd.detectChanges();
-      });
-  }
-  // helper function
   getDoctor(id: number) {
-  return this.doctors.find(d => d.id === id);
-}
-
-  // Cancel appointment
-cancel(id: number) {
-  this.http.put(`http://localhost:8080/appointments/${id}`, {})
-    .subscribe((res: any) => {
-
-      //  Update UI instantly
-      this.appointments = this.appointments.map(a =>
-        a.id === id ? { ...a, status: res.status } : a
-      );
-
-      this.appointments = [...this.appointments]; // force update
-      this.cd.detectChanges();
-    });
-}
-
-  // Delete history 
-  deleteHistory(id: number) {
-
-    if (!confirm("Delete this appointment permanently?")) return;
-
-    this.http.delete(`http://localhost:8080/appointments/${id}`, { responseType: 'text' })
-      .subscribe(() => {
-
-        // Remove from UI instantly
-        this.appointments = this.appointments.filter(a => a.id !== id);
-
-        this.cd.detectChanges();
-      });
+    return this.doctors.find(d => d.id === id);
   }
 
-  // Get doctor name
   getDoctorName(id: number) {
     const doc = this.doctors.find(d => d.id === id);
     return doc ? doc.name : 'Unknown';
   }
 
-  // TrackBy
-  trackById(index: number, item: any) {
-    return item.id;
+  /** Returns count of appointments matching a given status */
+  getStatusCount(status: string): number {
+    return this.appointments.filter(a => a.status === status).length;
   }
 
+  /** Cancel = PUT → status: 'cancelled' (does NOT delete the record) */
+  cancel(id: number) {
+    this.http.put<any>(`${API}/appointments/${id}/cancel`, {}).subscribe({
+      next: () => {
+        this.appointments = this.appointments.map(a =>
+          a.id === id ? { ...a, status: 'cancelled' } : a
+        );
+        this.appointments = [...this.appointments];
+        this.cd.detectChanges();
+      },
+      error: () => alert('Error cancelling appointment')
+    });
+  }
+
+  /** Hard delete — removes record permanently */
+  deleteHistory(id: number) {
+    if (!confirm('Delete this appointment permanently?')) return;
+    this.http.delete(`${API}/appointments/${id}`, { responseType: 'text' }).subscribe({
+      next: () => {
+        this.appointments = this.appointments.filter(a => a.id !== id);
+        this.cd.detectChanges();
+      }
+    });
+  }
+
+  trackById(_: number, item: any) { return item.id; }
 }

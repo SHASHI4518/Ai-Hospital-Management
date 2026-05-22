@@ -1,11 +1,9 @@
-const db = require('../config/db'); 
+const db = require('../config/db');
 
-// Get all doctors
 const getAllDoctors = (callback) => {
   db.query("SELECT * FROM doctors", callback);
 };
 
-// Add new doctor
 const addDoctor = (doctor, callback) => {
   const sql = `
     INSERT INTO doctors 
@@ -13,23 +11,16 @@ const addDoctor = (doctor, callback) => {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
   db.query(sql, [
-    doctor.name,
-    doctor.specialization,
-    doctor.experience,
-    doctor.location,
-    doctor.clinic,
-    doctor.fee,
-    doctor.image,
-    doctor.available
+    doctor.name, doctor.specialization, doctor.experience,
+    doctor.location, doctor.clinic, doctor.fee,
+    doctor.image, doctor.available
   ], callback);
 };
 
-// Delete doctor
 const deleteDoctor = (id, callback) => {
   db.query("DELETE FROM doctors WHERE id = ?", [id], callback);
 };
 
-// Update doctor
 const updateDoctor = (id, doctor, callback) => {
   const sql = `
     UPDATE doctors 
@@ -37,54 +28,36 @@ const updateDoctor = (id, doctor, callback) => {
     WHERE id = CAST(? AS UNSIGNED)
   `;
   db.query(sql, [
-    doctor.name,
-    doctor.specialization,
-    doctor.experience,
-    doctor.location,
-    doctor.clinic,
-    doctor.fee,
-    doctor.image,
-    doctor.available,
-    id
-  ], (err, result) => {
-    console.log("DB RESULT:", result);
-    console.log("ID SENT:", id);
-    callback(err, result);
-  });
+    doctor.name, doctor.specialization, doctor.experience,
+    doctor.location, doctor.clinic, doctor.fee,
+    doctor.image, doctor.available, id
+  ], callback);
 };
 
-// ─── TIME SLOTS (date-aware) ───────────────────────────────────────────────
+// ── Date-aware slots ──────────────────────────────────────────────────────────
 
-const addSlot = (doctor_id, date, time, callback) => {
+const upsertSlots = (doctor_id, date, slots, callback) => {
+  if (!slots || slots.length === 0) return callback(null);
+  const values = slots.map(s => [doctor_id, date, s.time, Number(s.available)]);
   const sql = `
     INSERT INTO doctor_slots (doctor_id, date, time, available)
-    VALUES (?, ?, ?, 1)
-    ON DUPLICATE KEY UPDATE available = 1
+    VALUES ?
+    ON DUPLICATE KEY UPDATE available = VALUES(available)
   `;
-  db.query(sql, [doctor_id, date, time], callback);
+  db.query(sql, [values], callback);
 };
 
-const getSlotsByDoctor = (doctor_id, date, callback) => {
-  const sql = "SELECT * FROM doctor_slots WHERE doctor_id = ? AND date = ?";
-  console.log("QUERY doctor_id:", doctor_id, "date:", date);
-  db.query(sql, [doctor_id, date], (err, results) => {
-    if (err) { console.log("DB ERROR:", err); return callback(err, null); }
-    console.log("DB RESULT:", results);
-    callback(null, results);
-  });
+const getSlotsByDoctorAndDate = (doctor_id, date, callback) => {
+  const sql = "SELECT time, available FROM doctor_slots WHERE doctor_id = ? AND date = ?";
+  db.query(sql, [doctor_id, date], callback);
 };
 
-const deleteSlot = (id, callback) => {
-  const sql = "DELETE FROM doctor_slots WHERE id = ?";
-  db.query(sql, [id], callback);
+const deleteSlotById = (id, callback) => {
+  db.query("DELETE FROM doctor_slots WHERE id = ?", [id], callback);
 };
 
-// ─── DATE-WISE DOCTOR AVAILABILITY ────────────────────────────────────────
+// ── Date-wise doctor availability ─────────────────────────────────────────────
 
-/**
- * Upsert a date-specific availability override for a doctor.
- * doctor_availability table: (doctor_id, date, is_available)
- */
 const setDoctorAvailabilityForDate = (doctor_id, date, is_available, callback) => {
   const sql = `
     INSERT INTO doctor_availability (doctor_id, date, is_available)
@@ -94,9 +67,6 @@ const setDoctorAvailabilityForDate = (doctor_id, date, is_available, callback) =
   db.query(sql, [doctor_id, date, is_available ? 1 : 0], callback);
 };
 
-/**
- * Get date-wise availability. Returns null if no override → fall back to global.
- */
 const getDoctorAvailabilityForDate = (doctor_id, date, callback) => {
   const sql = "SELECT is_available FROM doctor_availability WHERE doctor_id = ? AND date = ?";
   db.query(sql, [doctor_id, date], (err, rows) => {
@@ -106,13 +76,7 @@ const getDoctorAvailabilityForDate = (doctor_id, date, callback) => {
 };
 
 module.exports = {
-  getAllDoctors,
-  addDoctor,
-  deleteDoctor,
-  updateDoctor,
-  addSlot,
-  getSlotsByDoctor,
-  deleteSlot,
-  setDoctorAvailabilityForDate,
-  getDoctorAvailabilityForDate
+  getAllDoctors, addDoctor, deleteDoctor, updateDoctor,
+  upsertSlots, getSlotsByDoctorAndDate, deleteSlotById,
+  setDoctorAvailabilityForDate, getDoctorAvailabilityForDate
 };

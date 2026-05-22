@@ -5,8 +5,8 @@
 
 .sidebar {
   width: 260px;
-  background: #e4e6ec;
-  color: #ffffff;
+  background: #111827; /* Changed to a dark slate/navy color */
+  color: #f5f3f3;      /* Text color set to white */
   border: none;
   overflow-x: hidden;
 }
@@ -27,7 +27,7 @@
   align-items: center;
   margin: 4px 12px;
   border-radius: 8px;
-  color: #f4f5f5 !important;
+  color: #ffffff !important; 
   transition: all 0.2s ease-in-out;
   height: 48px !important;
   text-decoration: none;
@@ -49,7 +49,7 @@
 }
 
 .nav-list a.active {
-  background: #2563eb !important;
+  background: #2563eb !important; 
   color: #ffffff !important;
 }
 
@@ -61,6 +61,25 @@
   font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
+  color: #ffffff !important; /* Force white text on your span */
+}
+
+/* Add this to override Angular Material's internal text color injection */
+::ng-deep .nav-list .mat-mdc-list-item .mdc-list-item__primary-text {
+  color: #ffffff !important;
+}
+
+/* Ensure the icon color stays correct when inactive */
+::ng-deep .nav-list .mat-mdc-list-item mat-icon {
+  color: #9ca3af !important; 
+}
+
+/* Ensure both text and icon are pure white when active/hovered */
+::ng-deep .nav-list .mat-mdc-list-item:hover .mdc-list-item__primary-text,
+::ng-deep .nav-list .mat-mdc-list-item:hover mat-icon,
+::ng-deep .nav-list .active.mat-mdc-list-item .mdc-list-item__primary-text,
+::ng-deep .nav-list .active.mat-mdc-list-item mat-icon {
+  color: #ffffff !important;
 }
 
 .content {

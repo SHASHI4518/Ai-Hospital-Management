@@ -1,24 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const doctorController = require('../controllers/doctor.controller');
+const dc = require('../controllers/doctor.controller');
 const upload = require('../upload');
 
 // Doctor CRUD
-router.get('/doctors', doctorController.getDoctors);
-router.post('/doctors', upload.single('image'), doctorController.addDoctor);
-router.delete('/doctors/:id', doctorController.deleteDoctor);
-router.put('/doctors/:id', upload.single('image'), doctorController.updateDoctor);
+router.get('/doctors', dc.getDoctors);
+router.post('/doctors', upload.single('image'), dc.addDoctor);
+router.delete('/doctors/:id', dc.deleteDoctor);
+router.put('/doctors/:id', upload.single('image'), dc.updateDoctor);
 
-// Stats
-router.get('/stats', doctorController.getStats);
+// Stats (supports ?date=YYYY-MM-DD)
+router.get('/stats', dc.getStats);
 
-// Time Slots  (date-aware)
-router.post('/slots', doctorController.toggleSlot);          // batch save
-router.get('/slots/:id', doctorController.getSlots);         // fetch for doctor + date
-router.delete('/slots/:id', doctorController.deleteSlot);
+// Slots — date-aware
+// GET  /slots/:doctorId?date=YYYY-MM-DD  → fetch slots for that doctor+date
+// POST /slots                            → batch save slots { doctor_id, date, slots[] }
+router.get('/slots/:doctorId', dc.getSlots);
+router.post('/slots', dc.saveSlots);
 
-// Date-wise Doctor Availability
-router.post('/doctors/:id/availability', doctorController.setDoctorDateAvailability);
-router.get('/doctors/:id/availability', doctorController.getDoctorDateAvailability);
+// Date-wise doctor availability
+router.post('/doctors/:id/availability', dc.setDoctorDateAvailability);
+router.get('/doctors/:id/availability', dc.getDoctorDateAvailability);
 
 module.exports = router;

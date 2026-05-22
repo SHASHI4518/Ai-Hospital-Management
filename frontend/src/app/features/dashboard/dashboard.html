@@ -1,25 +1,61 @@
 <main class="container-fluid py-5 page-layout">
   <div class="row px-lg-4">
-    
+
     <!-- ── Left sidebar: book form (when no doctor selected) ── -->
     <div class="col-xl-4 col-lg-5 mb-4 mb-lg-0" *ngIf="!selectedDoctorId">
       <div class="sticky-sidebar card border-0 shadow-sm p-4 rounded-4 bg-white">
         <h3 class="fw-bold text-dark mb-3">Book an Appointment</h3>
         <p class="text-secondary small mb-4">Choose a specialized health provider from our registry to reserve your real-time consultation slot.</p>
-        
+
+        <!-- ── Combined search + dropdown combobox ── -->
         <div class="form-group mb-4">
-          <label class="form-label fw-bold small text-uppercase text-muted tracking-wider">Select Doctor</label>
-          <div class="select-wrapper position-relative">
-            <select class="form-select form-select-lg py-3 border-2 custom-select-input"
-                    [(ngModel)]="selectedDoctorId" (change)="onDoctorChange()">
-              <option [ngValue]="null">Choose medical provider...</option>
-              <option *ngFor="let doc of doctors" [ngValue]="doc.id">
-                {{ doc.name }} — {{ doc.specialization }}
-              </option>
-            </select>
+          <label class="form-label fw-bold small text-uppercase text-muted">Search &amp; Select Doctor</label>
+
+          <div class="combobox-wrapper" [class.open]="dropdownOpen">
+
+            <!-- Trigger input -->
+            <div class="combobox-input-row" (click)="openDropdown()">
+              <span class="combobox-icon"><i class="ti ti-stethoscope"></i></span>
+              <input #comboInput
+                     type="text"
+                     class="combobox-input"
+                     [placeholder]="selectedDoctorId ? getSelectedDoctorLabel() : 'Search by name or specialization…'"
+                     [(ngModel)]="doctorSearch"
+                     (input)="onSearchChange()"
+                     (focus)="openDropdown()"
+                     (keydown)="onComboKeydown($event)"
+                     autocomplete="off">
+              <span class="combobox-chevron" [class.rotated]="dropdownOpen">
+                <i class="ti ti-chevron-down"></i>
+              </span>
+            </div>
+
+            <!-- Dropdown list -->
+            <div class="combobox-dropdown" *ngIf="dropdownOpen">
+              <div class="combobox-empty"
+                   *ngIf="filteredDoctors.length === 0">
+                No doctors found for "{{ doctorSearch }}"
+              </div>
+              <div *ngFor="let doc of filteredDoctors; let i = index"
+                   class="combobox-option"
+                   [class.highlighted]="comboHighlightIndex === i"
+                   [class.selected]="doc.id === selectedDoctorId"
+                   (mousedown)="selectDoctor(doc)">
+                <span class="option-name">{{ doc.name }}</span>
+                <span class="option-spec">{{ doc.specialization }}</span>
+              </div>
+            </div>
+
           </div>
+
+          <!-- Clear button when a doctor is selected -->
+          <button *ngIf="selectedDoctorId && !dropdownOpen"
+                  class="btn btn-link btn-sm text-danger p-0 mt-1 d-inline-flex align-items-center gap-1"
+                  (click)="clearSelection()">
+            <i class="ti ti-x" style="font-size:13px;"></i> Clear selection
+          </button>
         </div>
-        
+
         <div class="appointment-steps p-3 rounded-3 bg-light">
           <div class="step d-flex gap-3 mb-3">
             <div class="step-num bg-primary text-white rounded-circle d-flex align-items-center justify-content-center">1</div>
@@ -27,7 +63,7 @@
           </div>
           <div class="step d-flex gap-3 mb-3">
             <div class="step-num bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center">2</div>
-            <div><p class="mb-0 fw-semibold text-dark">Pick Date & Time</p><small class="text-muted">Find matching schedule availability</small></div>
+            <div><p class="mb-0 fw-semibold text-dark">Pick Date &amp; Time</p><small class="text-muted">Find matching schedule availability</small></div>
           </div>
           <div class="step d-flex gap-0">
             <div class="step-num bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center">3</div>
@@ -40,10 +76,10 @@
     <!-- ── Doctor detail + booking panel ── -->
     <div class="col-12" *ngIf="selectedDoctorId">
       <button class="btn btn-link text-decoration-none text-primary fw-semibold p-0 mb-4 d-inline-flex align-items-center gap-2 back-btn"
-              (click)="selectedDoctorId = null">
+              (click)="clearSelection()">
         ← Back to Specializations
       </button>
-      
+
       <ng-container *ngFor="let doc of doctors; trackBy: trackById">
         <div class="row" *ngIf="doc.id === selectedDoctorId">
 
@@ -51,24 +87,18 @@
           <div class="col-lg-6 mb-4">
             <div class="card border-0 shadow p-4 rounded-4 bg-white h-100 position-relative overflow-hidden">
 
-              <!-- Global availability badge (always shown) -->
               <div class="status-badge-absolute"
                    [ngClass]="doc.available === 1 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
                 ● {{ doc.available === 1 ? 'Generally Available' : 'Generally Unavailable' }}
               </div>
 
-              <!-- Date-specific availability banner (shown only after date selected) -->
               <div *ngIf="selectedDate && hasSlotsLoaded(doc.id)"
                    class="date-avail-banner mt-5"
                    [ngClass]="isDoctorAvailableOnDate(doc.id) ? 'date-avail-yes' : 'date-avail-no'">
-                <span *ngIf="isDoctorAvailableOnDate(doc.id)">
-                  ✓ Available on {{ selectedDate }}
-                </span>
-                <span *ngIf="!isDoctorAvailableOnDate(doc.id)">
-                  ✕ Not Available on {{ selectedDate }} — Please choose a different date
-                </span>
+                <span *ngIf="isDoctorAvailableOnDate(doc.id)">✓ Available on {{ selectedDate }}</span>
+                <span *ngIf="!isDoctorAvailableOnDate(doc.id)">✕ Not Available on {{ selectedDate }} — Please choose a different date</span>
               </div>
-              
+
               <div class="d-flex align-items-start gap-4 mt-3">
                 <img [src]="'http://localhost:8080' + doc.image"
                      class="rounded-circle border border-4 border-light shadow-sm"
@@ -78,13 +108,11 @@
                   <span class="badge bg-primary-subtle text-primary mb-3 px-3 py-2 rounded-pill fw-semibold">
                     {{ doc.specialization }}
                   </span>
-                  
                   <div class="doctor-meta-grid">
-                    <div class="meta-item"><span class="meta-icon">💼</span> <strong>Experience:</strong> {{ doc.experience }} Years</div>
-                    <div class="meta-item"><span class="meta-icon">🏢</span> <strong>Clinic:</strong> {{ doc.clinic }}</div>
-                    <div class="meta-item"><span class="meta-icon">📍</span> <strong>Location:</strong> {{ doc.location }}</div>
+                    <div class="meta-item"><strong>Experience:</strong> {{ doc.experience }} Years</div>
+                    <div class="meta-item"><strong>Clinic:</strong> {{ doc.clinic }}</div>
+                    <div class="meta-item"><strong>Location:</strong> {{ doc.location }}</div>
                   </div>
-                  
                   <div class="fee-display mt-3 p-3 rounded-3 bg-light d-flex justify-content-between align-items-center">
                     <span class="text-secondary fw-semibold">Consultation Fee</span>
                     <span class="fs-3 fw-bold text-success">₹{{ doc.fee }}</span>
@@ -98,8 +126,7 @@
           <div class="col-lg-6 mb-4">
             <div class="card border-0 shadow p-4 rounded-4 bg-white h-100">
               <h3 class="fw-bold text-dark mb-3">Schedule Appointment</h3>
-              
-              <!-- Step 1: Choose date -->
+
               <div class="mb-4">
                 <label class="form-label fw-bold small text-muted text-uppercase">1. Choose Date</label>
                 <input type="date" [(ngModel)]="selectedDate"
@@ -108,37 +135,31 @@
                        [min]="today">
               </div>
 
-              <!-- Doctor unavailable on selected date warning -->
               <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && !isDoctorAvailableOnDate(doc.id)"
                    class="alert alert-danger d-flex align-items-center gap-2 py-2 mb-3">
                 <span>🚫</span>
-                <span class="small fw-semibold">Dr. {{ doc.name }} is not available on {{ selectedDate }}. Please select another date.</span>
+                <span class="small fw-semibold">
+                  Dr. {{ doc.name }} is not available on {{ selectedDate }}.
+                  Please select another date.
+                </span>
               </div>
 
-              <!-- Step 2: Choose time slot -->
               <div class="mb-4">
                 <label class="form-label fw-bold small text-muted text-uppercase d-block mb-3">2. Choose Time Slot</label>
 
-                <!-- Loading indicator -->
-                <div *ngIf="loadingSlots && selectedDate" class="text-muted fst-italic p-3 rounded bg-light border text-center">
+                <div *ngIf="loadingSlots && selectedDate"
+                     class="text-muted fst-italic p-3 rounded bg-light border text-center">
                   Loading available slots...
                 </div>
-                
-                <!-- No date selected -->
-                <div *ngIf="!selectedDate && !loadingSlots" class="text-muted fst-italic p-3 rounded bg-light border text-center">
+
+                <div *ngIf="!selectedDate && !loadingSlots"
+                     class="text-muted fst-italic p-3 rounded bg-light border text-center">
                   Select a date to see available appointment windows.
                 </div>
 
-                <!-- Slots not yet loaded for this date -->
-                <div *ngIf="selectedDate && !hasSlotsLoaded(doc.id) && !loadingSlots"
-                     class="text-muted fst-italic p-3 rounded bg-light border text-center">
-                  Select a date to fetch available appointment windows.
-                </div>
-
-                <!-- Slots grid: shown when loaded, doctor available on date -->
                 <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && isDoctorAvailableOnDate(doc.id)"
                      class="time-slots-container">
-                  <button *ngFor="let s of slots"
+                  <button *ngFor="let s of ALL_SLOTS"
                           class="btn slot-pill-btn"
                           [ngClass]="{
                             'slot-available': !isSlotDisabled(doc.id, s) && selectedTime !== s,
@@ -151,39 +172,38 @@
                   </button>
                 </div>
 
-                <!-- All slots blocked because doctor unavailable -->
                 <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && !isDoctorAvailableOnDate(doc.id)"
                      class="text-danger fst-italic p-3 rounded bg-danger-subtle border border-danger-subtle text-center small">
                   No slots available — doctor is not accepting appointments on this date.
                 </div>
               </div>
 
-              <button class="btn btn-success w-100 fw-bold py-3 text-uppercase tracking-wider shadow border-0 confirm-booking-btn"
-                      [disabled]="!selectedDate || !selectedTime || !isDoctorAvailableOnDate(doc.id)"
+              <button class="btn btn-success w-100 fw-bold py-3 text-uppercase shadow border-0 confirm-booking-btn"
+                      [disabled]="!selectedDate || !selectedTime || !isDoctorAvailableOnDate(doc.id) || isSlotDisabled(doc.id, selectedTime)"
                       (click)="book(doc.id)">
                 Confirm and Secure Slot
               </button>
             </div>
           </div>
+
         </div>
       </ng-container>
     </div>
 
-    <!-- ── Specializations grid (when no doctor selected) ── -->
+    <!-- ── Specializations grid ── -->
     <div class="col-xl-8 col-lg-7" *ngIf="!selectedDoctorId">
       <div class="mb-4">
         <h3 class="fw-bold text-dark mb-1">Medical Specialties</h3>
         <p class="text-muted small">Explore our dedicated departments covering specialized clinical therapeutic care fields</p>
       </div>
-      
       <div class="row g-3">
         <div class="col-md-6 col-xl-4" *ngFor="let info of specializationsInfo">
-          <div class="card h-100 border-0 shadow-sm p-4 specialty-card transition-all rounded-4 bg-white">
-            <div class="d-flex align-items-center gap-3 mb-3">
-              <div class="specialty-icon-wrapper rounded-3 bg-light fs-3 d-flex align-items-center justify-content-center">
+          <div class="card h-100 border-0 shadow-sm p-4 specialty-card rounded-4 bg-white">
+            <div class="specialty-card-header mb-3">
+              <div class="specialty-icon-wrapper rounded-3 bg-light fs-3 d-flex align-items-center justify-content-center flex-shrink-0">
                 {{ info.icon }}
               </div>
-              <h5 class="fw-bold text-dark m-0">{{ info.name }}</h5>
+              <h5 class="specialty-title fw-bold text-dark mb-0">{{ info.name }}</h5>
             </div>
             <p class="text-secondary small mb-0 lh-base">{{ info.desc }}</p>
           </div>
@@ -197,23 +217,37 @@
   <div class="row mt-5 px-lg-4" *ngIf="appointments.length > 0">
     <div class="col-12">
       <div class="card border-0 shadow-sm p-4 rounded-4 bg-white">
-        <h3 class="fw-bold text-dark mb-4">Your Active Appointments</h3>
+        <h3 class="fw-bold text-dark mb-4">Your Appointments</h3>
         <div class="table-responsive">
           <table class="table table-hover align-middle custom-appointments-table">
             <thead>
               <tr>
                 <th>Doctor</th>
-                <th>Appointment Date</th>
-                <th>Time Window</th>
+                <th>Date</th>
+                <th>Time</th>
                 <th>Status</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let app of appointments">
+              <tr *ngFor="let app of appointments; trackBy: trackById">
                 <td class="fw-bold text-dark">{{ getDoctorName(app.doctor_id) }}</td>
                 <td><span class="badge bg-light text-dark border px-3 py-2 font-monospace">{{ formatDateOnly(app.date) }}</span></td>
                 <td><span class="badge bg-primary-subtle text-primary px-3 py-2 font-monospace">{{ app.time }}</span></td>
-                <td><span class="badge bg-warning-subtle text-warning px-3 py-2 font-monospace">{{ app.status }}</span></td>
+                <td>
+                  <span class="badge px-3 py-2 font-monospace"
+                        [ngClass]="app.status === 'booked' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'">
+                    {{ app.status }}
+                  </span>
+                </td>
+                <td>
+                  <button *ngIf="app.status === 'booked'"
+                          class="btn btn-outline-danger btn-sm"
+                          (click)="cancel(app.id)">
+                    Cancel
+                  </button>
+                  <span *ngIf="app.status === 'cancelled'" class="text-muted small">—</span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -223,13 +257,7 @@
   </div>
 </main>
 
-<footer class="app-compact-footer border-top bg-white text-center py-3 text-secondary small">
-  <div class="container-fluid d-flex flex-column flex-sm-row justify-content-between align-items-center px-4 gap-2">
-    <span>&copy; 2026 HospitalApp. All rights reserved.</span>
-    <div class="d-flex gap-3 footer-links">
-      <a href="#" class="text-decoration-none text-muted">Terms</a>
-      <a href="#" class="text-decoration-none text-muted">Privacy Policy</a>
-      <a href="#" class="text-decoration-none text-muted">Support</a>
-    </div>
-  </div>
+<!-- FOOTER ELEMENT -->
+<footer class="site-footer">
+  <span>© 2025 Hospital Management System</span>
 </footer>

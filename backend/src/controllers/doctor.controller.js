@@ -1,6 +1,13 @@
 const db = require('../config/db');
 const Doctor = require('../models/doctor.model');
 
+const ALL_SLOTS = [
+  "09:00","10:00","11:00","12:00","13:00","14:00",
+  "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
+];
+
+// ── CRUD ──────────────────────────────────────────────────────────────────────
+
 const getDoctors = (req, res) => {
   Doctor.getAllDoctors((err, results) => {
     if (err) return res.status(500).json({ error: 'Error fetching doctors' });
@@ -10,17 +17,15 @@ const getDoctors = (req, res) => {
 
 const addDoctor = (req, res) => {
   const { name, specialization, experience, location, clinic, fee, available } = req.body;
-
   if (!name || !specialization) {
     if (req.file) require('fs').unlinkSync(req.file.path);
     return res.status(400).send("Name and specialization required");
   }
-
   const image = req.file ? `/uploads/doctors/${req.file.filename}` : null;
-
   Doctor.addDoctor(
-    { name, specialization, experience, location, clinic, fee, image, available: available === 'true' ? 1 : 0 },
-    (err, result) => {
+    { name, specialization, experience, location, clinic, fee, image,
+      available: available === 'true' ? 1 : 0 },
+    (err) => {
       if (err) { console.error(err); return res.status(500).send("Error adding doctor"); }
       res.send("Doctor added successfully");
     }
@@ -28,8 +33,7 @@ const addDoctor = (req, res) => {
 };
 
 const deleteDoctor = (req, res) => {
-  const id = req.params.id;
-  Doctor.deleteDoctor(id, (err, result) => {
+  Doctor.deleteDoctor(req.params.id, (err) => {
     if (err) return res.status(500).send("Error deleting doctor");
     res.send("Doctor deleted");
   });
@@ -38,14 +42,12 @@ const deleteDoctor = (req, res) => {
 const updateDoctor = (req, res) => {
   const id = Number(req.params.id);
   const { name, specialization, experience, location, clinic, fee, available } = req.body;
-
-  const getImage = (callback) => {
-    if (req.file) return callback(`/uploads/doctors/${req.file.filename}`);
+  const getImage = (cb) => {
+    if (req.file) return cb(`/uploads/doctors/${req.file.filename}`);
     db.query('SELECT image FROM doctors WHERE id = ?', [id], (err, rows) => {
-      callback(err ? null : rows[0]?.image);
+      cb(err ? null : rows[0]?.image);
     });
   };
-
   getImage((image) => {
     Doctor.updateDoctor(
       id,
@@ -59,25 +61,27 @@ const updateDoctor = (req, res) => {
   });
 };
 
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
 const getStats = (req, res) => {
   const { date } = req.query;
   const targetDate = date || new Date().toISOString().split('T')[0];
   const stats = {};
 
-  db.query("SELECT COUNT(*) AS totalDoctors FROM doctors WHERE available = 1", (err, result1) => {
+  db.query("SELECT COUNT(*) AS n FROM doctors WHERE available = 1", (err, r1) => {
     if (err) return res.status(500).send("Error");
-    stats.doctors = result1[0].totalDoctors;
+    stats.doctors = r1[0].n;
 
-    db.query("SELECT COUNT(*) AS totalAppointments FROM appointments", (err, result2) => {
+    db.query("SELECT COUNT(*) AS n FROM appointments", (err, r2) => {
       if (err) return res.status(500).send("Error");
-      stats.appointments = result2[0].totalAppointments;
+      stats.appointments = r2[0].n;
 
       db.query(
-        "SELECT COUNT(*) AS dayCount FROM appointments WHERE DATE(date) = ?",
+        "SELECT COUNT(*) AS n FROM appointments WHERE DATE(date) = ?",
         [targetDate],
-        (err, result3) => {
+        (err, r3) => {
           if (err) return res.status(500).send("Error");
-          stats.today = result3[0].dayCount;
+          stats.today = r3[0].n;
           stats.selectedDate = targetDate;
           res.json(stats);
         }
@@ -86,108 +90,77 @@ const getStats = (req, res) => {
   });
 };
 
-// ─── SLOTS ────────────────────────────────────────────────────────────────────
+// ── GET /slots/:doctorId?date=YYYY-MM-DD ──────────────────────────────────────
 
-/**
- * GET /slots/:id?date=YYYY-MM-DD
- * Returns all 13 time slots for the given doctor+date,
- * with available=1/0 based on what admin configured.
- * Also checks date-wise doctor availability override.
- */
 const getSlots = (req, res) => {
-  const doctor_id = req.params.id;
+  const doctor_id = req.params.doctorId;
   const { date } = req.query;
 
   if (!date) {
-    return res.status(400).json({ error: 'Date parameter is required' });
+    return res.status(400).json({ error: 'date query parameter is required. Usage: /slots/:id?date=YYYY-MM-DD' });
   }
 
-  const ALL_SLOTS = [
-    "09:00","10:00","11:00","12:00","13:00","14:00",
-    "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
-  ];
-
-  // First check date-wise availability override
   Doctor.getDoctorAvailabilityForDate(doctor_id, date, (err, availRow) => {
     if (err) {
-      console.error("Error checking date availability:", err);
+      console.error("getSlots: getDoctorAvailabilityForDate error:", err);
       return res.status(500).json({ error: err.message });
     }
 
-    // If admin explicitly marked doctor unavailable for this date → all slots blocked
-    // availRow === null means no override (use global); availRow.is_available = 0 means blocked
-    const dateBlocked = availRow !== null && availRow.is_available === 0;
+    const dateBlocked = availRow !== null && Number(availRow.is_available) === 0;
 
     if (dateBlocked) {
-      // Return all slots as unavailable + flag the doctor as unavailable for this date
       const blocked = ALL_SLOTS.map(time => ({ time, available: 0 }));
       return res.json({ doctorAvailableOnDate: false, slots: blocked });
     }
 
-    // Fetch slot config from doctor_slots
-    const sql = `SELECT time, available FROM doctor_slots WHERE doctor_id = ? AND date = ?`;
-    db.query(sql, [doctor_id, date], (err, results) => {
+    Doctor.getSlotsByDoctorAndDate(doctor_id, date, (err, rows) => {
       if (err) {
-        console.error("SQL Error in getSlots:", err);
+        console.error("getSlots: getSlotsByDoctorAndDate error:", err);
         return res.status(500).json({ error: err.message });
       }
 
       const dbMap = {};
-      if (results && Array.isArray(results)) {
-        results.forEach(row => { dbMap[row.time] = Number(row.available); });
-      }
+      (rows || []).forEach(row => { dbMap[row.time] = Number(row.available); });
 
       const fullSlots = ALL_SLOTS.map(time => ({
         time,
         available: dbMap[time] !== undefined ? dbMap[time] : 0
       }));
 
-      res.json({
-        doctorAvailableOnDate: availRow === null ? null : true, // null = use global flag
-        slots: fullSlots
-      });
+      let doctorAvailableOnDate = null;
+      if (availRow !== null) {
+        doctorAvailableOnDate = Number(availRow.is_available) === 1;
+      }
+
+      res.json({ doctorAvailableOnDate, slots: fullSlots });
     });
   });
 };
 
-/**
- * POST /slots
- * Body: { doctor_id, date, slots: [{time, available}] }
- * Batch upsert all slots for a date.
- */
-const toggleSlot = (req, res) => {
+// ── POST /slots — batch save slots for a doctor+date ─────────────────────────
+
+const saveSlots = (req, res) => {
   const { doctor_id, date, slots } = req.body;
 
-  if (doctor_id === undefined || !date || !slots || !Array.isArray(slots)) {
-    return res.status(400).json({ error: 'doctor_id, date, and slots array are required' });
+  if (!doctor_id || !date || !Array.isArray(slots)) {
+    return res.status(400).json({ error: 'doctor_id, date, and slots[] are required' });
   }
 
   if (slots.length === 0) {
-    return res.json({ success: true, message: "No slots provided to update" });
+    return res.json({ success: true, message: 'No slots to update' });
   }
 
-  const values = slots.map(slot => [doctor_id, date, slot.time, Number(slot.available)]);
-  const sql = `
-    INSERT INTO doctor_slots (doctor_id, date, time, available)
-    VALUES ?
-    ON DUPLICATE KEY UPDATE available = VALUES(available)
-  `;
-
-  db.query(sql, [values], (err, result) => {
+  Doctor.upsertSlots(doctor_id, date, slots, (err) => {
     if (err) {
-      console.error("SQL Error in toggleSlot batch update:", err);
+      console.error("saveSlots error:", err);
       return res.status(500).json({ error: err.message });
     }
-    res.json({ success: true, doctor_id, date, updatedCount: slots.length });
+    res.json({ success: true, doctor_id, date, count: slots.length });
   });
 };
 
-// ─── DATE-WISE DOCTOR AVAILABILITY ────────────────────────────────────────────
+// ── POST /doctors/:id/availability ───────────────────────────────────────────
 
-/**
- * POST /doctors/:id/availability
- * Body: { date: 'YYYY-MM-DD', is_available: true|false }
- */
 const setDoctorDateAvailability = (req, res) => {
   const doctor_id = req.params.id;
   const { date, is_available } = req.body;
@@ -198,24 +171,14 @@ const setDoctorDateAvailability = (req, res) => {
 
   Doctor.setDoctorAvailabilityForDate(doctor_id, date, is_available, (err) => {
     if (err) {
-      console.error("Error setting doctor date availability:", err);
+      console.error("setDoctorDateAvailability error:", err);
       return res.status(500).json({ error: err.message });
     }
 
-    // If marking unavailable, also disable all slots for that date
     if (!is_available) {
-      const ALL_SLOTS = [
-        "09:00","10:00","11:00","12:00","13:00","14:00",
-        "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
-      ];
-      const values = ALL_SLOTS.map(time => [doctor_id, date, time, 0]);
-      const sql = `
-        INSERT INTO doctor_slots (doctor_id, date, time, available)
-        VALUES ?
-        ON DUPLICATE KEY UPDATE available = 0
-      `;
-      db.query(sql, [values], (err2) => {
-        if (err2) console.error("Error disabling slots for unavailable date:", err2);
+      const disabledSlots = ALL_SLOTS.map(time => ({ time, available: 0 }));
+      Doctor.upsertSlots(doctor_id, date, disabledSlots, (err2) => {
+        if (err2) console.error("setDoctorDateAvailability: upsertSlots error:", err2);
         res.json({ success: true, doctor_id, date, is_available: false });
       });
     } else {
@@ -224,47 +187,30 @@ const setDoctorDateAvailability = (req, res) => {
   });
 };
 
-/**
- * GET /doctors/:id/availability?date=YYYY-MM-DD
- */
+// ── GET /doctors/:id/availability?date=YYYY-MM-DD ────────────────────────────
+
 const getDoctorDateAvailability = (req, res) => {
   const doctor_id = req.params.id;
   const { date } = req.query;
-
   if (!date) return res.status(400).json({ error: 'date is required' });
 
   Doctor.getDoctorAvailabilityForDate(doctor_id, date, (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    // null means no override set → use doctor's global available flag
+
     if (row === null) {
       db.query('SELECT available FROM doctors WHERE id = ?', [doctor_id], (err2, rows) => {
         if (err2 || !rows.length) return res.json({ is_available: false, source: 'global' });
-        res.json({ is_available: rows[0].available === 1, source: 'global' });
+        res.json({ is_available: Number(rows[0].available) === 1, source: 'global' });
       });
     } else {
-      res.json({ is_available: row.is_available === 1, source: 'date_override' });
+      res.json({ is_available: Number(row.is_available) === 1, source: 'date_override' });
     }
-  });
-};
-
-const addSlot = (req, res) => {
-  const { doctor_id, date, time } = req.body;
-  Doctor.addSlot(doctor_id, date, time, (err) => {
-    if (err) return res.status(500).send("Error adding slot");
-    res.send("Slot added");
-  });
-};
-
-const deleteSlot = (req, res) => {
-  const id = req.params.id;
-  Doctor.deleteSlot(id, (err) => {
-    if (err) return res.status(500).send("Error deleting");
-    res.send("Deleted");
   });
 };
 
 module.exports = {
   getDoctors, addDoctor, deleteDoctor, updateDoctor,
-  getStats, addSlot, getSlots, deleteSlot, toggleSlot,
+  getStats,
+  getSlots, saveSlots,
   setDoctorDateAvailability, getDoctorDateAvailability
 };
