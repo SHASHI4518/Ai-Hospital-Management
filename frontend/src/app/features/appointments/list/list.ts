@@ -36,11 +36,20 @@ export class AppointmentListComponent implements OnInit {
   doctors: any[] = [];
   loading = false;
 
+  /** Shown as a green banner when the user lands here after a successful booking */
+  showSuccessBanner = false;
+
   constructor(
     private http: HttpClient,
     private router: Router,
     private cd: ChangeDetectorRef
-  ) {}
+  ) {
+    // Detect if we arrived via navigation state set by the booking flow
+    const nav = this.router.getCurrentNavigation();
+    if (nav?.extras?.state?.['fromBooking']) {
+      this.showSuccessBanner = true;
+    }
+  }
 
   ngOnInit() {
     this.loadAppointments();
@@ -109,6 +118,11 @@ export class AppointmentListComponent implements OnInit {
         this.cd.detectChanges();
       }
     });
+  }
+
+  /** Navigate back to the dashboard */
+  goToDashboard() {
+    this.router.navigate(['/dashboard']);
   }
 
   trackById(_: number, item: any) { return item.id; }

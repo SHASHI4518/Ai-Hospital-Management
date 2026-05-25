@@ -1,6 +1,22 @@
 <div class="page-wrapper">
   <div class="appointments-page">
 
+    <div class="page-header">
+      <button mat-stroked-button class="back-btn" (click)="goToDashboard()">
+        <mat-icon>arrow_back</mat-icon>
+        Back to selecting doctor
+      </button>
+      
+    </div>
+
+    <div *ngIf="showSuccessBanner" class="success-banner">
+      <mat-icon>check_circle</mat-icon>
+      <span>Your appointment has been booked successfully!</span>
+      <button mat-icon-button (click)="showSuccessBanner = false">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
     <div *ngIf="loading" class="loading-state">
       <mat-spinner diameter="48" color="primary"></mat-spinner>
       <p>Loading your appointments…</p>

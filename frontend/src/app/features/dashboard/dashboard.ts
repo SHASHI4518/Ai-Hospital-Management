@@ -278,14 +278,11 @@ export class DashboardComponent implements OnInit {
       time: this.selectedTime
     };
     this.http.post(`${API}/book`, data, { responseType: 'text' }).subscribe({
-      next: (res) => {
-        alert(res);
-        this.loadAppointments();
-        this.loadSlots(doctorId, this.selectedDate);
+      next: () => {
         this.selectedDate = '';
         this.selectedTime = '';
         this.cd.detectChanges();
-        alert("Appointment booked successfully");
+        this.router.navigate(['/appointments'], { state: { fromBooking: true } });
       },
       error: () => alert("Error booking appointment")
     });
