@@ -4,15 +4,26 @@ const Appointment = require("../models/appointment.model");
 const bookAppointment = (req, res) => {
   const { user_mobile, doctor_id, date, time } = req.body;
   if (!user_mobile || !doctor_id || !date || !time)
-    return res.send("All fields required");
+    return res.status(400).send("All fields required");
 
-  Appointment.checkSlotCount(doctor_id, date, time, (err, result) => {
-    if (err) { console.log(err); return res.send("Error checking slot"); }
-    if (result[0].count >= 5) return res.send("Slot Full");
+  // Step 1: Check if THIS user already has an active booking for this slot
+  Appointment.checkUserAlreadyBooked(user_mobile, doctor_id, date, time, (err, result) => {
+    if (err) { console.log(err); return res.status(500).send("Error checking booking"); }
 
-    Appointment.createAppointment({ user_mobile, doctor_id, date, time }, (err) => {
-      if (err) { console.log(err); return res.send("Error booking appointment"); }
-      res.send("Appointment booked successfully");
+    if (result[0].count > 0) {
+      return res.status(409).send("You have already booked this time slot. Please choose a different date or time.");
+    }
+
+    // Step 2: Check if the slot still has capacity (max 5 bookings per slot)
+    Appointment.checkSlotCount(doctor_id, date, time, (err, result) => {
+      if (err) { console.log(err); return res.status(500).send("Error checking slot"); }
+      if (result[0].count >= 5) return res.status(409).send("Slot Full");
+
+      // Step 3: Create the appointment
+      Appointment.createAppointment({ user_mobile, doctor_id, date, time }, (err) => {
+        if (err) { console.log(err); return res.status(500).send("Error booking appointment"); }
+        res.send("Appointment booked successfully");
+      });
     });
   });
 };

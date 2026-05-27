@@ -6,6 +6,8 @@ const ALL_SLOTS = [
   "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
 ];
 
+const MAX_BOOKINGS_PER_SLOT = 5;
+
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
 const getDoctors = (req, res) => {
@@ -91,6 +93,16 @@ const getStats = (req, res) => {
 };
 
 // ── GET /slots/:doctorId?date=YYYY-MM-DD ──────────────────────────────────────
+//
+// Returns for each time slot:
+//   available    : 1 = bookable, 0 = not bookable
+//   bookingCount : how many active bookings exist for that slot
+//   isFull       : true when bookingCount >= MAX_BOOKINGS_PER_SLOT
+//
+// A slot is NOT available when ANY of:
+//   1. The doctor is marked unavailable on this date (date_override or global flag)
+//   2. The admin has set doctor_slots.available = 0 for this slot
+//   3. The slot already has MAX_BOOKINGS_PER_SLOT active bookings
 
 const getSlots = (req, res) => {
   const doctor_id = req.params.doctorId;
@@ -100,6 +112,7 @@ const getSlots = (req, res) => {
     return res.status(400).json({ error: 'date query parameter is required. Usage: /slots/:id?date=YYYY-MM-DD' });
   }
 
+  // Step 1: check date-level availability
   Doctor.getDoctorAvailabilityForDate(doctor_id, date, (err, availRow) => {
     if (err) {
       console.error("getSlots: getDoctorAvailabilityForDate error:", err);
@@ -109,30 +122,59 @@ const getSlots = (req, res) => {
     const dateBlocked = availRow !== null && Number(availRow.is_available) === 0;
 
     if (dateBlocked) {
-      const blocked = ALL_SLOTS.map(time => ({ time, available: 0 }));
+      const blocked = ALL_SLOTS.map(time => ({
+        time,
+        available: 0,
+        bookingCount: 0,
+        isFull: false
+      }));
       return res.json({ doctorAvailableOnDate: false, slots: blocked });
     }
 
-    Doctor.getSlotsByDoctorAndDate(doctor_id, date, (err, rows) => {
+    // Step 2: get admin-configured slot availability
+    Doctor.getSlotsByDoctorAndDate(doctor_id, date, (err, slotRows) => {
       if (err) {
         console.error("getSlots: getSlotsByDoctorAndDate error:", err);
         return res.status(500).json({ error: err.message });
       }
 
-      const dbMap = {};
-      (rows || []).forEach(row => { dbMap[row.time] = Number(row.available); });
+      // Step 3: get actual booking counts per slot from appointments table
+      const countSql = `
+        SELECT time, COUNT(*) AS booking_count
+        FROM appointments
+        WHERE doctor_id = ? AND DATE(date) = ? AND status != 'cancelled'
+        GROUP BY time
+      `;
+      db.query(countSql, [doctor_id, date], (err, countRows) => {
+        if (err) {
+          console.error("getSlots: booking count query error:", err);
+          return res.status(500).json({ error: err.message });
+        }
 
-      const fullSlots = ALL_SLOTS.map(time => ({
-        time,
-        available: dbMap[time] !== undefined ? dbMap[time] : 0
-      }));
+        // Build lookup maps
+        const adminMap = {};
+        (slotRows || []).forEach(row => { adminMap[row.time] = Number(row.available); });
 
-      let doctorAvailableOnDate = null;
-      if (availRow !== null) {
-        doctorAvailableOnDate = Number(availRow.is_available) === 1;
-      }
+        const bookingCountMap = {};
+        (countRows || []).forEach(row => { bookingCountMap[row.time] = Number(row.booking_count); });
 
-      res.json({ doctorAvailableOnDate, slots: fullSlots });
+        // Merge: a slot is available only if admin enabled it AND it's not full
+        const fullSlots = ALL_SLOTS.map(time => {
+          const adminEnabled = adminMap[time] !== undefined ? adminMap[time] : 0;
+          const bookingCount = bookingCountMap[time] || 0;
+          const isFull = bookingCount >= MAX_BOOKINGS_PER_SLOT;
+          const available = adminEnabled === 1 && !isFull ? 1 : 0;
+
+          return { time, available, bookingCount, isFull };
+        });
+
+        let doctorAvailableOnDate = null;
+        if (availRow !== null) {
+          doctorAvailableOnDate = Number(availRow.is_available) === 1;
+        }
+
+        res.json({ doctorAvailableOnDate, slots: fullSlots });
+      });
     });
   });
 };

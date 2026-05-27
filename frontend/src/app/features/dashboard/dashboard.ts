@@ -39,7 +39,8 @@ export class DashboardComponent implements OnInit {
     "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
   ];
 
-  doctorSlots: { [slotKey: string]: { [time: string]: number } } = {};
+  // Stores full slot objects: { available, bookingCount, isFull }
+  doctorSlots: { [slotKey: string]: { [time: string]: { available: number; bookingCount: number; isFull: boolean } } } = {};
   dateAvailability: { [key: string]: boolean } = {};
   loadingSlots = false;
 
@@ -91,21 +92,18 @@ export class DashboardComponent implements OnInit {
 
   openDropdown() {
     this.dropdownOpen = true;
-    // Clear the input text so user sees the full list immediately
     if (this.selectedDoctorId && this.doctorSearch === this.getSelectedDoctorLabel()) {
       this.doctorSearch = '';
       this.filteredDoctors = this.doctors;
     }
     this.comboHighlightIndex = -1;
     this.cd.detectChanges();
-    // Focus input
     setTimeout(() => this.comboInputRef?.nativeElement?.focus(), 0);
   }
 
   closeDropdown() {
     this.dropdownOpen = false;
     this.comboHighlightIndex = -1;
-    // Restore label text if a doctor is selected
     if (this.selectedDoctorId) {
       this.doctorSearch = '';
     }
@@ -203,8 +201,15 @@ export class DashboardComponent implements OnInit {
         const doctorAvailableOnDate: boolean | null = Array.isArray(res)
           ? null : res.doctorAvailableOnDate;
 
-        const map: { [time: string]: number } = {};
-        slotsArr.forEach((s: any) => { map[s.time] = Number(s.available); });
+        // Store full slot objects keyed by time
+        const map: { [time: string]: { available: number; bookingCount: number; isFull: boolean } } = {};
+        slotsArr.forEach((s: any) => {
+          map[s.time] = {
+            available:    Number(s.available),
+            bookingCount: Number(s.bookingCount ?? 0),
+            isFull:       Boolean(s.isFull)
+          };
+        });
         this.doctorSlots[slotKey] = map;
 
         if (doctorAvailableOnDate === false) {
@@ -255,13 +260,57 @@ export class DashboardComponent implements OnInit {
     return doc ? Number(doc.available) === 1 : false;
   }
 
+  /** Returns the slot data object for a given doctor+date+time */
+  private getSlotData(docId: number, time: string): { available: number; bookingCount: number; isFull: boolean } | null {
+    if (!this.selectedDate) return null;
+    const map = this.doctorSlots[`${docId}_${this.selectedDate}`];
+    return map?.[time] ?? null;
+  }
+
+  /** True when the slot is fully booked (5/5) */
+  isSlotFull(docId: number, time: string): boolean {
+    const slot = this.getSlotData(docId, time);
+    return slot ? slot.isFull : false;
+  }
+
+  /** True when the slot should not be selectable for any reason */
   isSlotDisabled(docId: number, time: string): boolean {
     if (!this.selectedDate) return true;
     const slotKey = `${docId}_${this.selectedDate}`;
     if (this.dateAvailability[slotKey] === false) return true;
-    const map = this.doctorSlots[slotKey];
-    if (!map) return true;
-    return (map[time] ?? 0) === 0;
+    const slot = this.getSlotData(docId, time);
+    if (!slot) return true;
+    // disabled if admin turned it off OR it's full
+    return slot.available === 0;
+  }
+
+  // ── Duplicate booking check ───────────────────────────────
+
+  isAlreadyBooked(doctorId: number, date: string, time: string): boolean {
+    return this.appointments.some(a => {
+      const storedDate = this.normalizeDateString(a.date);
+      const storedTime = (a.time || '').substring(0, 5);
+      const checkTime  = (time  || '').substring(0, 5);
+      return (
+        Number(a.doctor_id) === Number(doctorId) &&
+        storedDate === date &&
+        storedTime === checkTime &&
+        a.status !== 'cancelled'
+      );
+    });
+  }
+
+  normalizeDateString(dateVal: any): string {
+    if (!dateVal) return '';
+    if (typeof dateVal !== 'string') {
+      const d = new Date(dateVal);
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const dd   = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    const match = dateVal.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : dateVal;
   }
 
   // ── Booking ───────────────────────────────────────────────
@@ -271,12 +320,24 @@ export class DashboardComponent implements OnInit {
       alert("Please select date and time slot");
       return;
     }
+
+    if (this.isAlreadyBooked(doctorId, this.selectedDate, this.selectedTime)) {
+      alert("You have already booked this time slot. Please choose a different date or time.");
+      return;
+    }
+
+    if (this.isSlotFull(doctorId, this.selectedTime)) {
+      alert("This slot is fully booked. Please choose a different time.");
+      return;
+    }
+
     const data = {
       user_mobile: localStorage.getItem("user"),
       doctor_id: doctorId,
       date: this.selectedDate,
       time: this.selectedTime
     };
+
     this.http.post(`${API}/book`, data, { responseType: 'text' }).subscribe({
       next: () => {
         this.selectedDate = '';
@@ -284,7 +345,18 @@ export class DashboardComponent implements OnInit {
         this.cd.detectChanges();
         this.router.navigate(['/appointments'], { state: { fromBooking: true } });
       },
-      error: () => alert("Error booking appointment")
+      error: (err) => {
+        if (err.status === 409) {
+          alert(err.error || "This slot is no longer available. Please choose a different time.");
+          this.loadAppointments();
+          // Reload slots so UI reflects latest state
+          if (this.selectedDoctorId && this.selectedDate) {
+            this.loadSlots(this.selectedDoctorId, this.selectedDate);
+          }
+        } else {
+          alert("Error booking appointment");
+        }
+      }
     });
   }
 
@@ -294,7 +366,10 @@ export class DashboardComponent implements OnInit {
     const mobile = localStorage.getItem("user");
     if (!mobile) return;
     this.http.get<any[]>(`${API}/appointments/${mobile}`).subscribe({
-      next: (res) => { this.appointments = res; this.cd.detectChanges(); },
+      next: (res) => {
+        this.appointments = res;
+        this.cd.detectChanges();
+      },
       error: () => console.error("Failed to load appointments")
     });
   }

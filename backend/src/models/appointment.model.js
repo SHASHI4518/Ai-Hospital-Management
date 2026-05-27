@@ -30,6 +30,18 @@ const checkSlotCount = (doctor_id, date, time, callback) => {
   db.query(sql, [doctor_id, date, time], callback);
 };
 
+/**
+ * NEW: Check if a specific user already has an active booking
+ * for the same doctor + date + time slot.
+ */
+const checkUserAlreadyBooked = (user_mobile, doctor_id, date, time, callback) => {
+  const sql = `
+    SELECT COUNT(*) as count FROM appointments
+    WHERE user_mobile = ? AND doctor_id = ? AND date = ? AND time = ? AND status != 'cancelled'
+  `;
+  db.query(sql, [user_mobile, doctor_id, date, time], callback);
+};
+
 const getSlotCounts = (doctor_id, date, callback) => {
   const sql = `
     SELECT time, COUNT(*) as count FROM appointments
@@ -45,5 +57,5 @@ const deleteAppointment = (id, callback) => {
 
 module.exports = {
   createAppointment, getAppointmentsByUser, cancelAppointment,
-  checkSlotCount, getSlotCounts, deleteAppointment
+  checkSlotCount, checkUserAlreadyBooked, getSlotCounts, deleteAppointment
 };

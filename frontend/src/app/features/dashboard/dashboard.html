@@ -162,13 +162,18 @@
                   <button *ngFor="let s of ALL_SLOTS"
                           class="btn slot-pill-btn"
                           [ngClass]="{
-                            'slot-available': !isSlotDisabled(doc.id, s) && selectedTime !== s,
-                            'slot-disabled':  isSlotDisabled(doc.id, s),
-                            'slot-selected':  selectedTime === s && !isSlotDisabled(doc.id, s)
+                            'slot-available':      !isSlotDisabled(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s) && selectedTime !== s,
+                            'slot-full':            isSlotFull(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
+                            'slot-disabled':        isSlotDisabled(doc.id, s) && !isSlotFull(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
+                            'slot-selected':        selectedTime === s && !isSlotDisabled(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
+                            'slot-already-booked':  isAlreadyBooked(doc.id, selectedDate, s)
                           }"
-                          [disabled]="isSlotDisabled(doc.id, s)"
-                          (click)="selectedTime = s">
+                          [disabled]="isSlotDisabled(doc.id, s) || isAlreadyBooked(doc.id, selectedDate, s)"
+                          [title]="isSlotFull(doc.id, s) ? 'Slot Full — no more bookings available' : (isAlreadyBooked(doc.id, selectedDate, s) ? 'You have already booked this slot' : '')"
+                          (click)="!isSlotDisabled(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s) && (selectedTime = s)">
                     {{ s }}
+                    <span *ngIf="isSlotFull(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s)" class="slot-status-badge slot-full-badge">🚫 Full</span>
+                    <span *ngIf="isAlreadyBooked(doc.id, selectedDate, s)" class="slot-status-badge slot-booked-badge">✓ Booked</span>
                   </button>
                 </div>
 
@@ -178,8 +183,14 @@
                 </div>
               </div>
 
+              <div *ngIf="selectedTime && isAlreadyBooked(doc.id, selectedDate, selectedTime)"
+                   class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3">
+                <span>⚠️</span>
+                <span class="small fw-semibold">You have already booked this slot. Please choose a different time.</span>
+              </div>
+
               <button class="btn btn-success w-100 fw-bold py-3 text-uppercase shadow border-0 confirm-booking-btn"
-                      [disabled]="!selectedDate || !selectedTime || !isDoctorAvailableOnDate(doc.id) || isSlotDisabled(doc.id, selectedTime)"
+                      [disabled]="!selectedDate || !selectedTime || !isDoctorAvailableOnDate(doc.id) || isSlotDisabled(doc.id, selectedTime) || isAlreadyBooked(doc.id, selectedDate, selectedTime)"
                       (click)="book(doc.id)">
                 Confirm and Secure Slot
               </button>
