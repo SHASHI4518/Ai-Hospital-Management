@@ -1,11 +1,28 @@
 const db = require('../config/db');
 const Doctor = require('../models/doctor.model');
 
-const ALL_SLOTS = [
-  "09:00","10:00","11:00","12:00","13:00","14:00",
-  "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
-];
+// ── Dynamic slot generation ───────────────────────────────────────────────────
+//
+// Slots are generated dynamically from SLOT_START_HOUR to SLOT_END_HOUR.
+// Change these two constants to adjust the clinic's working hours globally.
+// No code changes required in the frontend — the frontend fetches this list.
 
+const SLOT_START_HOUR = 9;   // 09:00  (inclusive)
+const SLOT_END_HOUR   = 21;  // 21:00  (inclusive, last slot of the day)
+
+/**
+ * Generates an array of "HH:00" strings from SLOT_START_HOUR to SLOT_END_HOUR.
+ * Example output: ["09:00","10:00", ... ,"21:00"]
+ */
+function generateAllSlots() {
+  const slots = [];
+  for (let h = SLOT_START_HOUR; h <= SLOT_END_HOUR; h++) {
+    slots.push(`${String(h).padStart(2, '0')}:00`);
+  }
+  return slots;
+}
+
+const ALL_SLOTS = generateAllSlots();
 const MAX_BOOKINGS_PER_SLOT = 5;
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
@@ -92,25 +109,48 @@ const getStats = (req, res) => {
   });
 };
 
+// ── GET /slots/config ─────────────────────────────────────────────────────────
+//
+// Returns the full list of clinic slot times so the frontend never needs
+// to hardcode them. Also exposes startHour / endHour for display purposes.
+
+const getSlotConfig = (req, res) => {
+  res.json({
+    slots:     ALL_SLOTS,
+    startHour: SLOT_START_HOUR,
+    endHour:   SLOT_END_HOUR
+  });
+};
+
 // ── GET /slots/:doctorId?date=YYYY-MM-DD ──────────────────────────────────────
 //
 // Returns for each time slot:
 //   available    : 1 = bookable, 0 = not bookable
 //   bookingCount : how many active bookings exist for that slot
 //   isFull       : true when bookingCount >= MAX_BOOKINGS_PER_SLOT
+//   isPast       : true when the slot time has already passed today
 //
 // A slot is NOT available when ANY of:
 //   1. The doctor is marked unavailable on this date (date_override or global flag)
 //   2. The admin has set doctor_slots.available = 0 for this slot
 //   3. The slot already has MAX_BOOKINGS_PER_SLOT active bookings
+//   4. The slot time is in the past (date == today && slot hour <= current hour)
 
 const getSlots = (req, res) => {
   const doctor_id = req.params.doctorId;
   const { date } = req.query;
 
   if (!date) {
-    return res.status(400).json({ error: 'date query parameter is required. Usage: /slots/:id?date=YYYY-MM-DD' });
+    return res.status(400).json({
+      error: 'date query parameter is required. Usage: /slots/:id?date=YYYY-MM-DD'
+    });
   }
+
+  // Determine which slots are "in the past" for today's date.
+  // We use the server's local time so the check is consistent regardless of client timezone.
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isToday  = date === todayStr;
+  const nowHour  = new Date().getHours(); // 0-23 in server local time
 
   // Step 1: check date-level availability
   Doctor.getDoctorAvailabilityForDate(doctor_id, date, (err, availRow) => {
@@ -122,12 +162,11 @@ const getSlots = (req, res) => {
     const dateBlocked = availRow !== null && Number(availRow.is_available) === 0;
 
     if (dateBlocked) {
-      const blocked = ALL_SLOTS.map(time => ({
-        time,
-        available: 0,
-        bookingCount: 0,
-        isFull: false
-      }));
+      const blocked = ALL_SLOTS.map(time => {
+        const slotHour = parseInt(time.split(':')[0], 10);
+        const isPast   = isToday && slotHour <= nowHour;
+        return { time, available: 0, bookingCount: 0, isFull: false, isPast };
+      });
       return res.json({ doctorAvailableOnDate: false, slots: blocked });
     }
 
@@ -158,14 +197,20 @@ const getSlots = (req, res) => {
         const bookingCountMap = {};
         (countRows || []).forEach(row => { bookingCountMap[row.time] = Number(row.booking_count); });
 
-        // Merge: a slot is available only if admin enabled it AND it's not full
+        // Merge: a slot is available only if:
+        //   - admin enabled it
+        //   - not full
+        //   - not in the past (when date is today)
         const fullSlots = ALL_SLOTS.map(time => {
+          const slotHour   = parseInt(time.split(':')[0], 10);
+          const isPast     = isToday && slotHour <= nowHour;
           const adminEnabled = adminMap[time] !== undefined ? adminMap[time] : 0;
           const bookingCount = bookingCountMap[time] || 0;
-          const isFull = bookingCount >= MAX_BOOKINGS_PER_SLOT;
-          const available = adminEnabled === 1 && !isFull ? 1 : 0;
+          const isFull       = bookingCount >= MAX_BOOKINGS_PER_SLOT;
+          // available = 0 if past, if admin disabled, or if slot is full
+          const available    = (!isPast && adminEnabled === 1 && !isFull) ? 1 : 0;
 
-          return { time, available, bookingCount, isFull };
+          return { time, available, bookingCount, isFull, isPast };
         });
 
         let doctorAvailableOnDate = null;
@@ -253,6 +298,7 @@ const getDoctorDateAvailability = (req, res) => {
 module.exports = {
   getDoctors, addDoctor, deleteDoctor, updateDoctor,
   getStats,
+  getSlotConfig,
   getSlots, saveSlots,
   setDoctorDateAvailability, getDoctorDateAvailability
 };

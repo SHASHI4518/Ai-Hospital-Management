@@ -145,7 +145,18 @@
               </div>
 
               <div class="mb-4">
-                <label class="form-label fw-bold small text-muted text-uppercase d-block mb-3">2. Choose Time Slot</label>
+                <label class="form-label fw-bold small text-muted text-uppercase d-block mb-2">2. Choose Time Slot</label>
+
+                <!-- ── Legend (shown when date is selected and slots are loaded) ──
+                <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && isDoctorAvailableOnDate(doc.id)"
+                     class="slot-legend d-flex flex-wrap gap-2 mb-3">
+                  <span class="legend-item legend-available">Available</span>
+                  <span class="legend-item legend-past">Past</span>
+                  <span class="legend-item legend-full">Full</span>
+                  <span class="legend-item legend-booked">My Booking</span>
+                  <span class="legend-item legend-selected">Selected</span>
+                </div> -->
+                <!-- ─────────────────────────────────────────────────────────────── -->
 
                 <div *ngIf="loadingSlots && selectedDate"
                      class="text-muted fst-italic p-3 rounded bg-light border text-center">
@@ -157,23 +168,32 @@
                   Select a date to see available appointment windows.
                 </div>
 
+                <!-- ── Slot grid ── -->
                 <div *ngIf="selectedDate && hasSlotsLoaded(doc.id) && isDoctorAvailableOnDate(doc.id)"
                      class="time-slots-container">
                   <button *ngFor="let s of ALL_SLOTS"
                           class="btn slot-pill-btn"
                           [ngClass]="{
                             'slot-available':      !isSlotDisabled(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s) && selectedTime !== s,
-                            'slot-full':            isSlotFull(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
-                            'slot-disabled':        isSlotDisabled(doc.id, s) && !isSlotFull(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
+                            'slot-past':            isSlotPast(doc.id, s),
+                            'slot-full':            isSlotFull(doc.id, s) && !isSlotPast(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
+                            'slot-disabled':        isSlotDisabled(doc.id, s) && !isSlotFull(doc.id, s) && !isSlotPast(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
                             'slot-selected':        selectedTime === s && !isSlotDisabled(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s),
                             'slot-already-booked':  isAlreadyBooked(doc.id, selectedDate, s)
                           }"
                           [disabled]="isSlotDisabled(doc.id, s) || isAlreadyBooked(doc.id, selectedDate, s)"
-                          [title]="isSlotFull(doc.id, s) ? 'Slot Full — no more bookings available' : (isAlreadyBooked(doc.id, selectedDate, s) ? 'You have already booked this slot' : '')"
+                          [title]="getSlotDisabledReason(doc.id, s) || (isAlreadyBooked(doc.id, selectedDate, s) ? 'You have already booked this slot' : s)"
                           (click)="!isSlotDisabled(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s) && (selectedTime = s)">
                     {{ s }}
-                    <span *ngIf="isSlotFull(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s)" class="slot-status-badge slot-full-badge">🚫 Full</span>
-                    <span *ngIf="isAlreadyBooked(doc.id, selectedDate, s)" class="slot-status-badge slot-booked-badge">✓ Booked</span>
+                    <!-- Past badge -->
+                    <span *ngIf="isSlotPast(doc.id, s)"
+                          class="slot-status-badge slot-past-badge">⏰ Past</span>
+                    <!-- Full badge (only when not past) -->
+                    <span *ngIf="isSlotFull(doc.id, s) && !isSlotPast(doc.id, s) && !isAlreadyBooked(doc.id, selectedDate, s)"
+                          class="slot-status-badge slot-full-badge">🚫 Full</span>
+                    <!-- Already booked badge -->
+                    <span *ngIf="isAlreadyBooked(doc.id, selectedDate, s)"
+                          class="slot-status-badge slot-booked-badge">✓ Booked</span>
                   </button>
                 </div>
 
@@ -187,6 +207,15 @@
                    class="alert alert-warning d-flex align-items-center gap-2 py-2 mb-3">
                 <span>⚠️</span>
                 <span class="small fw-semibold">You have already booked this slot. Please choose a different time.</span>
+              </div>
+
+              <!-- Today info banner -->
+              <div *ngIf="selectedDate === today && hasSlotsLoaded(doc.id) && isDoctorAvailableOnDate(doc.id)"
+                   class="alert alert-info d-flex align-items-center gap-2 py-2 mb-3">
+                <span>ℹ️</span>
+                <span class="small fw-semibold">
+                  You are booking for today. Slots before the current hour are automatically disabled.
+                </span>
               </div>
 
               <button class="btn btn-success w-100 fw-bold py-3 text-uppercase shadow border-0 confirm-booking-btn"

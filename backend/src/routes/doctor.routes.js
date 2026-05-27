@@ -12,6 +12,12 @@ router.put('/doctors/:id', upload.single('image'), dc.updateDoctor);
 // Stats (supports ?date=YYYY-MM-DD)
 router.get('/stats', dc.getStats);
 
+// ── Slot config ──────────────────────────────────────────────────────────────
+// GET /slots/config  → returns dynamic list of all slot times + startHour/endHour
+// NOTE: this MUST be registered BEFORE /slots/:doctorId so Express doesn't
+//       treat "config" as a doctorId parameter.
+router.get('/slots/config', dc.getSlotConfig);
+
 // Slots — date-aware
 // GET  /slots/:doctorId?date=YYYY-MM-DD  → fetch slots for that doctor+date
 // POST /slots                            → batch save slots { doctor_id, date, slots[] }

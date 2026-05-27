@@ -34,15 +34,33 @@ export class DashboardComponent implements OnInit {
   selectedTime = '';
   today: string = new Date().toISOString().split('T')[0];
 
-  readonly ALL_SLOTS = [
-    "09:00","10:00","11:00","12:00","13:00","14:00",
-    "15:00","16:00","17:00","18:00","19:00","20:00","21:00"
-  ];
+  // ── Dynamic slot list (replaces hardcoded ALL_SLOTS) ────
+  // Fetched once from GET /slots/config on component init.
+  // Falls back to the default range if the API is unreachable.
+  ALL_SLOTS: string[] = [];
+  slotsConfigLoaded = false;
+  // ────────────────────────────────────────────────────────
 
-  // Stores full slot objects: { available, bookingCount, isFull }
-  doctorSlots: { [slotKey: string]: { [time: string]: { available: number; bookingCount: number; isFull: boolean } } } = {};
+  // Stores full slot objects: { available, bookingCount, isFull, isPast }
+  doctorSlots: {
+    [slotKey: string]: {
+      [time: string]: {
+        available:    number;
+        bookingCount: number;
+        isFull:       boolean;
+        isPast:       boolean;
+      }
+    }
+  } = {};
   dateAvailability: { [key: string]: boolean } = {};
   loadingSlots = false;
+
+  // ── Clock for real-time past-slot refresh ───────────────
+  // Re-evaluates every minute so that a slot that just passed
+  // becomes disabled without requiring the user to change the date.
+  private clockTick = 0;         // incremented every minute; triggers CD
+  private clockTimer: any = null;
+  // ────────────────────────────────────────────────────────
 
   specializationsInfo = [
     { name: 'Gynecologist',       desc: 'Women health, pregnancy, and reproductive care.',           icon: '🩺' },
@@ -75,8 +93,14 @@ export class DashboardComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.loadSlotConfig();   // ← fetch dynamic slot list first
     this.loadDoctors();
     this.loadAppointments();
+    this.startClockTick();
+  }
+
+  ngOnDestroy() {
+    if (this.clockTimer) clearInterval(this.clockTimer);
   }
 
   // ── Close dropdown when clicking outside ─────────────────
@@ -86,6 +110,49 @@ export class DashboardComponent implements OnInit {
     if (!target.closest('.combobox-wrapper')) {
       this.closeDropdown();
     }
+  }
+
+  // ── Real-time clock (re-checks past slots every minute) ──
+
+  private startClockTick() {
+    // Align with the next whole minute then tick every 60 s
+    const msToNextMinute = (60 - new Date().getSeconds()) * 1000;
+    setTimeout(() => {
+      this.clockTick++;
+      this.cd.detectChanges();
+      this.clockTimer = setInterval(() => {
+        this.clockTick++;
+        this.cd.detectChanges();
+      }, 60_000);
+    }, msToNextMinute);
+  }
+
+  // ── Fetch dynamic slot config from backend ───────────────
+
+  loadSlotConfig() {
+    this.http.get<{ slots: string[]; startHour: number; endHour: number }>(`${API}/slots/config`)
+      .subscribe({
+        next: (config) => {
+          this.ALL_SLOTS = config.slots;
+          this.slotsConfigLoaded = true;
+          this.cd.detectChanges();
+        },
+        error: () => {
+          // Fallback: generate 09:00–21:00 locally if API is unreachable
+          console.warn('Could not fetch slot config — using default 09:00–21:00');
+          this.ALL_SLOTS = this.generateFallbackSlots(9, 21);
+          this.slotsConfigLoaded = true;
+          this.cd.detectChanges();
+        }
+      });
+  }
+
+  private generateFallbackSlots(startHour: number, endHour: number): string[] {
+    const slots: string[] = [];
+    for (let h = startHour; h <= endHour; h++) {
+      slots.push(`${String(h).padStart(2, '0')}:00`);
+    }
+    return slots;
   }
 
   // ── Combobox methods ──────────────────────────────────────
@@ -202,14 +269,24 @@ export class DashboardComponent implements OnInit {
           ? null : res.doctorAvailableOnDate;
 
         // Store full slot objects keyed by time
-        const map: { [time: string]: { available: number; bookingCount: number; isFull: boolean } } = {};
+        const map: {
+          [time: string]: {
+            available:    number;
+            bookingCount: number;
+            isFull:       boolean;
+            isPast:       boolean;
+          }
+        } = {};
+
         slotsArr.forEach((s: any) => {
           map[s.time] = {
             available:    Number(s.available),
             bookingCount: Number(s.bookingCount ?? 0),
-            isFull:       Boolean(s.isFull)
+            isFull:       Boolean(s.isFull),
+            isPast:       Boolean(s.isPast)
           };
         });
+
         this.doctorSlots[slotKey] = map;
 
         if (doctorAvailableOnDate === false) {
@@ -261,10 +338,31 @@ export class DashboardComponent implements OnInit {
   }
 
   /** Returns the slot data object for a given doctor+date+time */
-  private getSlotData(docId: number, time: string): { available: number; bookingCount: number; isFull: boolean } | null {
+  private getSlotData(docId: number, time: string): {
+    available: number; bookingCount: number; isFull: boolean; isPast: boolean;
+  } | null {
     if (!this.selectedDate) return null;
     const map = this.doctorSlots[`${docId}_${this.selectedDate}`];
     return map?.[time] ?? null;
+  }
+
+  /**
+   * Returns true when the slot time has already passed.
+   * Uses the client-side clock as a secondary guard (the backend is the
+   * authoritative source via the isPast flag on the slot object).
+   */
+  isSlotPast(docId: number, time: string): boolean {
+    // Use server-side isPast flag if available
+    const slot = this.getSlotData(docId, time);
+    if (slot) return slot.isPast;
+
+    // Client-side fallback for today's date
+    if (!this.selectedDate) return false;
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (this.selectedDate !== todayStr) return false;
+    const nowHour  = new Date().getHours();
+    const slotHour = parseInt(time.split(':')[0], 10);
+    return slotHour <= nowHour;
   }
 
   /** True when the slot is fully booked (5/5) */
@@ -278,10 +376,27 @@ export class DashboardComponent implements OnInit {
     if (!this.selectedDate) return true;
     const slotKey = `${docId}_${this.selectedDate}`;
     if (this.dateAvailability[slotKey] === false) return true;
+
+    // Past-time check (works client-side every minute via clockTick)
+    if (this.isSlotPast(docId, time)) return true;
+
     const slot = this.getSlotData(docId, time);
     if (!slot) return true;
     // disabled if admin turned it off OR it's full
     return slot.available === 0;
+  }
+
+  /**
+   * Returns a human-readable tooltip / reason label for a disabled slot.
+   * Used in the template to give the user clear feedback.
+   */
+  getSlotDisabledReason(docId: number, time: string): string {
+    if (!this.selectedDate) return '';
+    if (this.isSlotPast(docId, time))  return 'Past — cannot book';
+    if (this.isSlotFull(docId, time))  return 'Slot Full — no more bookings';
+    const slot = this.getSlotData(docId, time);
+    if (slot && slot.available === 0)   return 'Not available';
+    return '';
   }
 
   // ── Duplicate booking check ───────────────────────────────
@@ -318,6 +433,12 @@ export class DashboardComponent implements OnInit {
   book(doctorId: number) {
     if (!this.selectedDate || !this.selectedTime) {
       alert("Please select date and time slot");
+      return;
+    }
+
+    if (this.isSlotPast(doctorId, this.selectedTime)) {
+      alert("The selected time slot has already passed. Please choose a future slot.");
+      this.selectedTime = '';
       return;
     }
 

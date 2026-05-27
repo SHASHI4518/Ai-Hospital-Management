@@ -389,3 +389,63 @@
   padding: 14px;
   font-size: 0.85rem;
 }
+/* ── Past-time slot styles ──────────────────────────────────────────────── */
+
+.slot-past {
+  background: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  text-decoration: line-through;
+}
+
+.slot-past-badge {
+  color: #64748b;
+}
+
+/* ── Slot legend ────────────────────────────────────────────────────────── */
+
+.slot-legend {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+}
+
+.legend-available {
+  background: #f0fdf4;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.legend-past {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #e2e8f0;
+  text-decoration: line-through;
+}
+
+.legend-full {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.legend-booked {
+  background: #fffbeb;
+  color: #92400e;
+  border-color: #fde68a;
+}
+
+.legend-selected {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
